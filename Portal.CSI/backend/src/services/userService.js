@@ -41,10 +41,6 @@ class UserService {
     this.repository = new BaseRepository('Users', 'UserId');
   }
 
-  isUuid(value) {
-    return false; // UUID no longer used — all IDs are BIGINT
-  }
-
   mapUserRecord(user) {
     if (!user) {
       return user;

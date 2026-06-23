@@ -17,8 +17,19 @@ const { requireAuth, requirePermission } = require('./middleware/authMiddleware'
  */
 const app = express();
 
-// Trust proxy for IIS/iisnode - required for req.ip, req.protocol, etc.
-app.set('trust proxy', true);
+// Trust proxy for IIS/iisnode.
+// Use 'loopback' (not `true`): IIS forwards requests to the Node process from the
+// local machine and sets X-Forwarded-For. Trusting only loopback lets req.ip resolve
+// to the real client IP while preventing clients from spoofing X-Forwarded-For to
+// bypass IP-based rate limiting / login lockout. Centralized here (see config/security.js).
+app.set('trust proxy', 'loopback');
+
+// CSRF strategy:
+// State-changing requests are authenticated via httpOnly, SameSite=Lax cookies (or an
+// Authorization bearer header). SameSite=Lax already blocks cross-site form/POST CSRF,
+// and bearer tokens are not auto-sent cross-site. A header-based double-submit
+// implementation is available in middleware/security.js (csrfProtection /
+// csrfTokenGenerator) if a stricter policy is required in the future.
 
 /**
  * Security Middleware Configuration

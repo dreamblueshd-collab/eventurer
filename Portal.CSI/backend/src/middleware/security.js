@@ -150,19 +150,26 @@ function cleanupExpiredTokens() {
  * Middleware to detect and block potential SQL injection attempts
  */
 function sqlInjectionProtection(req, res, next) {
-  // High-confidence SQL injection patterns.
-  // Keep this strict enough for attacks but avoid blocking normal free-text input.
+  // Defense-in-depth ONLY. The real protection against SQL injection is the fact that
+  // every database call uses parameterized queries (mssql .input()/@params).
+  //
+  // This middleware therefore deliberately:
+  //   - scans only req.query and req.params (URL-controlled values that should never
+  //     legitimately contain SQL), NOT req.body. Request bodies carry free-text such as
+  //     survey answers/comments where strings like "great service -- keep it up", "a/b",
+  //     or "select the best option from the list" are perfectly valid and must not be
+  //     rejected or mutated.
+  //   - matches only high-confidence attack signatures (no bare "--" / comment markers,
+  //     which produced false positives on ordinary punctuation).
   const sqlPatterns = [
     /('|"|`)\s*(or|and)\s+('|"|`)?\d+\s*=\s*('|"|`)?\d+/i,
     /\bunion\s+all?\s+select\b/i,
     /\b(select|insert|update|delete|drop|create|alter|exec|execute)\b[\s\S]{0,40}\b(from|into|set|table)\b/i,
-    /(--|\/\*|\*\/)/,
     /\b(waitfor\s+delay|xp_cmdshell|sp_executesql)\b/i
   ];
-  
-  // Check all input sources
+
+  // Only inspect URL-controlled inputs (query string + route params).
   const inputs = [
-    ...Object.values(req.body || {}),
     ...Object.values(req.query || {}),
     ...Object.values(req.params || {})
   ];
@@ -238,10 +245,17 @@ function xssProtection(req, res, next) {
     return obj;
   }
   
-  // Sanitize all inputs
-  if (req.body) {
-    req.body = sanitize(req.body);
-  }
+  // Sanitize inputs.
+  //
+  // IMPORTANT: req.body is intentionally NOT mutated here. Bodies carry user free-text
+  // (survey answers, comments, descriptions) that must be stored verbatim. Silently
+  // stripping characters here corrupts legitimate data and gives a false sense of
+  // security (blacklist filtering is bypassable). XSS is instead prevented at OUTPUT
+  // time: the React frontend escapes by default, and any server-rendered HTML must
+  // encode untrusted values when interpolating them.
+  //
+  // We still scrub query string and route params, which feed redirects/links and should
+  // never legitimately contain markup.
   if (req.query) {
     req.query = sanitize(req.query);
   }
