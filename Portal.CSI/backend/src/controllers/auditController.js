@@ -1,24 +1,22 @@
-const { param, query, validationResult } = require('express-validator');
 const auditService = require('../services/auditService');
 const { getIpAddress } = require('../utils/auditHelpers');
-const logger = require('../config/logger');
+const { sendSuccess, sendCreated, sendError, sendPaginated } = require('../utils/apiResponse');
+const { handleControllerError } = require('../utils/controllerError');
 
 /**
  * Get audit logs
- * GET /api/v1/audit/logs
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * GET /api/v1/audit
  */
 async function getAuditLogs(req, res) {
   try {
-    const { 
-      startDate, 
-      endDate, 
-      userId, 
+    const {
+      startDate,
+      endDate,
+      userId,
       username,
       keyword,
       searchBy,
-      action, 
+      action,
       entityType,
       entityId,
       page,
@@ -42,29 +40,19 @@ async function getAuditLogs(req, res) {
 
     const result = await auditService.getAuditLogs(filter);
 
-    res.json({
-      success: true,
-      logs: result.data || [],
-      total: result.pagination?.totalRecords || 0,
+    return sendPaginated(res, result.data || [], {
       page: result.pagination?.page || 1,
       pageSize: result.pagination?.pageSize || 50,
-      totalPages: result.pagination?.totalPages || 1
+      total: result.pagination?.totalRecords || 0
     });
-
   } catch (error) {
-    logger.error('Get audit logs controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching audit logs'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching audit logs');
   }
 }
 
 /**
  * Get entity history
  * GET /api/v1/audit/entity-history/:entityType/:entityId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getEntityHistory(req, res) {
   try {
@@ -73,28 +61,21 @@ async function getEntityHistory(req, res) {
 
     const history = await auditService.getEntityHistory(entityType, entityId);
 
-    res.json({
-      success: true,
-      history: history.history || [],
-      totalChanges: history.totalChanges || 0,
-      entityType: history.entityType || entityType,
-      entityId: history.entityId || entityId
+    return sendSuccess(res, history.history || [], {
+      meta: {
+        totalChanges: history.totalChanges || 0,
+        entityType: history.entityType || entityType,
+        entityId: history.entityId || entityId
+      }
     });
-
   } catch (error) {
-    logger.error('Get entity history controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching entity history'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching entity history');
   }
 }
 
 /**
  * Log action (manual logging endpoint - typically done via middleware)
  * POST /api/v1/audit/log
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function logAction(req, res) {
   try {
@@ -109,24 +90,12 @@ async function logAction(req, res) {
     const result = await auditService.logAction(log);
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Logging failed',
-        message: result.errorMessage
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: result.errorMessage });
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Action logged successfully',
-      logId: result.logId
-    });
-
+    return sendCreated(res, { logId: result.logId }, { meta: { message: 'Action logged successfully' } });
   } catch (error) {
-    logger.error('Log action controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while logging action'
-    });
+    return handleControllerError(res, error, 'An error occurred while logging action');
   }
 }
 

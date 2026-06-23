@@ -154,13 +154,12 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
    - [x] `applicationController`, `businessUnitController`, `departmentController`,
          `divisionController`, `functionController` (master data) — **SELESAI**
    - [x] `userController` — **SELESAI**
-   - [x] `mappingController`, `integrationController` — `mappingController` **SELESAI**;
-         `integrationController` menyusul
+   - [x] `mappingController`, `integrationController` — **SELESAI**
    - [x] `questionController`, `responseController`, `surveyController` — **SELESAI**
    - [x] `approvalController` — **SELESAI**
    - [x] `doorprizeController` — **SELESAI** (test lama doorprizeController.test.js diperbarui ke envelope; doorprize.integration.test.js perlu realign saat ada DB test)
-   - [ ] `reportController` (perhatikan endpoint export non-JSON)
-   - [ ] `auditController`, `emailController`
+   - [x] `reportController` (export non-JSON tetap) — **SELESAI**
+   - [x] `auditController`, `emailController` — **SELESAI**
    - Untuk tiap endpoint:
      - List → `sendPaginated(res, items, { page, pageSize, total })` atau
        `sendSuccess(res, items)` bila tanpa paginasi.

@@ -1,54 +1,45 @@
-const { body, param, query, validationResult } = require('express-validator');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
 const ExcelJS = require('exceljs');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError } = require('../utils/controllerError');
 
+/**
+ * Map email-service errors to the standard error envelope (message-based heuristic).
+ */
 function handleEmailError(res, error, fallbackMessage) {
   const message = error?.message || fallbackMessage;
 
   if (/not found/i.test(message)) {
-    return res.status(404).json({
-      error: 'Not found',
-      message
-    });
+    return sendError(res, { status: 404, code: 'NOT_FOUND', message });
   }
 
   if (/validation|required|invalid|ended|no recipients/i.test(message)) {
-    return res.status(400).json({
-      error: 'Validation failed',
-      message
-    });
+    return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message });
   }
 
   logger.error(fallbackMessage, error);
-  return res.status(500).json({
-    error: 'Internal server error',
-    message: fallbackMessage
-  });
+  return sendError(res, { status: 500, message: fallbackMessage });
 }
 
 /**
  * Send survey blast
  * POST /api/v1/emails/blast
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function sendSurveyBlast(req, res) {
   try {
-    const request = req.body;
-    const result = await emailService.sendSurveyBlast(request);
+    const result = await emailService.sendSurveyBlast(req.body);
 
-    res.json({
-      success: true,
-      message: 'Survey blast sent successfully',
+    return sendSuccess(res, {
       total: result.total,
       sent: result.sent,
       failed: result.failed,
       skipped: result.skipped || 0,
       errors: result.errors || [],
       detail: result.message || null
+    }, {
+      meta: { message: 'Survey blast sent successfully' }
     });
-
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while sending survey blast');
   }
@@ -57,51 +48,35 @@ async function sendSurveyBlast(req, res) {
 /**
  * Get target recipients
  * POST /api/v1/emails/target-recipients
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getTargetRecipients(req, res) {
   try {
-    const criteria = req.body;
-    const recipients = await emailService.getTargetRecipients(criteria);
+    const recipients = await emailService.getTargetRecipients(req.body);
 
-    res.json({
-      success: true,
-      recipients,
-      count: recipients.length
-    });
-
+    return sendSuccess(res, recipients, { meta: { count: recipients.length } });
   } catch (error) {
-    logger.error('Get target recipients controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching recipients'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching recipients');
   }
 }
 
 /**
  * Send reminders
  * POST /api/v1/emails/reminders
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function sendReminders(req, res) {
   try {
-    const request = req.body;
-    const result = await emailService.sendReminders(request);
+    const result = await emailService.sendReminders(req.body);
 
-    res.json({
-      success: true,
-      message: 'Reminders sent successfully',
+    return sendSuccess(res, {
       total: result.total,
       sent: result.sent,
       failed: result.failed,
       skipped: result.skipped || 0,
       errors: result.errors || [],
       detail: result.message || null
+    }, {
+      meta: { message: 'Reminders sent successfully' }
     });
-
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while sending reminders');
   }
@@ -110,20 +85,13 @@ async function sendReminders(req, res) {
 /**
  * Get non-respondents
  * GET /api/v1/emails/non-respondents/:surveyId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getNonRespondents(req, res) {
   try {
     const surveyId = String(req.params.surveyId || '').trim();
     const nonRespondents = await emailService.getNonRespondents(surveyId);
 
-    res.json({
-      success: true,
-      nonRespondents,
-      count: nonRespondents.length
-    });
-
+    return sendSuccess(res, nonRespondents, { meta: { count: nonRespondents.length } });
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while fetching non-respondents');
   }
@@ -132,32 +100,20 @@ async function getNonRespondents(req, res) {
 /**
  * Send approval notification
  * POST /api/v1/emails/approval-notification
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function sendApprovalNotification(req, res) {
   try {
     if (!req.body || typeof req.body !== 'object') {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Notification payload is required'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Notification payload is required' });
     }
 
     const result = await emailService.sendApprovalNotification(req.body);
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Notification sending failed',
-        message: result.error
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: result.error });
     }
 
-    res.json({
-      success: true,
-      message: 'Approval notification sent successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Approval notification sent successfully' } });
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while sending notification');
   }
@@ -166,32 +122,20 @@ async function sendApprovalNotification(req, res) {
 /**
  * Send rejection notification
  * POST /api/v1/emails/rejection-notification
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function sendRejectionNotification(req, res) {
   try {
     if (!req.body || typeof req.body !== 'object') {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Notification payload is required'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Notification payload is required' });
     }
 
     const result = await emailService.sendRejectionNotification(req.body);
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Notification sending failed',
-        message: result.error
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: result.error });
     }
 
-    res.json({
-      success: true,
-      message: 'Rejection notification sent successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Rejection notification sent successfully' } });
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while sending notification');
   }
@@ -200,32 +144,18 @@ async function sendRejectionNotification(req, res) {
 /**
  * Get email template
  * GET /api/v1/emails/templates/:templateName
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getTemplate(req, res) {
   try {
-    const templateName = req.params.templateName;
-    const template = await emailService.getTemplate(templateName);
+    const template = await emailService.getTemplate(req.params.templateName);
 
     if (!template) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Template not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Template not found' });
     }
 
-    res.json({
-      success: true,
-      template
-    });
-
+    return sendSuccess(res, template);
   } catch (error) {
-    logger.error('Get template controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching template'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching template');
   }
 }
 
@@ -309,11 +239,7 @@ async function sendStandaloneBlast(req, res) {
       endAt: body.endAt
     });
 
-    res.json({
-      success: true,
-      message: 'Email blast sent successfully',
-      ...result
-    });
+    return sendSuccess(res, result, { meta: { message: 'Email blast sent successfully' } });
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while sending standalone blast');
   }
@@ -322,8 +248,6 @@ async function sendStandaloneBlast(req, res) {
 /**
  * Schedule standalone blast (no survey context)
  * POST /api/v1/emails/schedule-standalone
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function scheduleStandaloneBlast(req, res) {
   try {
@@ -338,28 +262,28 @@ async function scheduleStandaloneBlast(req, res) {
     const recipients = [...parsedRecipients, ...uploadedRecipients];
 
     if (recipients.length === 0) {
-      return res.status(400).json({ error: 'Validation failed', message: 'At least one recipient is required' });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'At least one recipient is required' });
     }
     if (!body.subject || !String(body.subject).trim()) {
-      return res.status(400).json({ error: 'Validation failed', message: 'Subject is required' });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Subject is required' });
     }
     if (!body.message || !String(body.message).trim()) {
-      return res.status(400).json({ error: 'Validation failed', message: 'Message is required' });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Message is required' });
     }
     if (!body.scheduledDate) {
-      return res.status(400).json({ error: 'Validation failed', message: 'Scheduled date is required' });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Scheduled date is required' });
     }
 
     const frequency = body.frequency || 'once';
     const validFrequencies = ['once', 'daily', 'weekly', 'monthly'];
     if (!validFrequencies.includes(frequency)) {
-      return res.status(400).json({ error: 'Validation failed', message: `Frequency must be one of: ${validFrequencies.join(', ')}` });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: `Frequency must be one of: ${validFrequencies.join(', ')}` });
     }
     if (frequency === 'weekly' && (body.dayOfWeek === null || body.dayOfWeek === undefined || body.dayOfWeek < 0 || body.dayOfWeek > 6)) {
-      return res.status(400).json({ error: 'Validation failed', message: 'Weekly scheduling requires dayOfWeek (0-6)' });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Weekly scheduling requires dayOfWeek (0-6)' });
     }
     if (frequency !== 'once' && !body.scheduledTime) {
-      return res.status(400).json({ error: 'Validation failed', message: 'Recurring schedules require scheduledTime in HH:mm format' });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Recurring schedules require scheduledTime in HH:mm format' });
     }
 
     // Build operation context (standalone payload)
@@ -389,11 +313,7 @@ async function scheduleStandaloneBlast(req, res) {
       createdBy: req.user?.userId || null
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'Standalone blast scheduled successfully',
-      operation: result
-    });
+    return sendCreated(res, result, { meta: { message: 'Standalone blast scheduled successfully' } });
   } catch (error) {
     return handleEmailError(res, error, 'An error occurred while scheduling standalone blast');
   }

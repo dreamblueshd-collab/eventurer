@@ -1,129 +1,86 @@
-const { query, validationResult } = require('express-validator');
 const sapSyncService = require('../services/sapSyncService');
-const logger = require('../config/logger');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
+const { handleControllerError } = require('../utils/controllerError');
 
 /**
  * Trigger SAP sync
  * POST /api/v1/integrations/sap/sync
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function triggerSAPSync(req, res) {
   try {
     const result = await sapSyncService.syncOrganizationalData();
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'SAP sync failed',
+      return sendError(res, {
+        status: 400,
+        code: 'BAD_REQUEST',
         message: result.errorMessage,
         details: result.errors
       });
     }
 
-    res.json({
-      success: true,
-      message: 'SAP sync completed successfully',
-      summary: {
-        added: result.added,
-        updated: result.updated,
-        deactivated: result.deactivated,
-        errors: result.errors
-      }
+    return sendSuccess(res, {
+      added: result.added,
+      updated: result.updated,
+      deactivated: result.deactivated,
+      errors: result.errors
+    }, {
+      meta: { message: 'SAP sync completed successfully' }
     });
-
   } catch (error) {
-    logger.error('Trigger SAP sync controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred during SAP sync'
-    });
+    return handleControllerError(res, error, 'An error occurred during SAP sync');
   }
 }
 
 /**
  * Get SAP sync status
  * GET /api/v1/integrations/sap/sync/status
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getSAPSyncStatus(req, res) {
   try {
     const status = await sapSyncService.getSyncStatus();
 
-    res.json({
-      success: true,
-      status
-    });
-
+    return sendSuccess(res, status);
   } catch (error) {
-    logger.error('Get SAP sync status controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching sync status'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching sync status');
   }
 }
 
 /**
  * Get SAP sync history
  * GET /api/v1/integrations/sap/sync/history
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getSAPSyncHistory(req, res) {
   try {
     const { limit, offset } = req.query;
 
     const filter = {};
-    if (limit) filter.limit = parseInt(limit);
-    if (offset) filter.offset = parseInt(offset);
+    if (limit) filter.limit = parseInt(limit, 10);
+    if (offset) filter.offset = parseInt(offset, 10);
 
     const history = await sapSyncService.getSyncHistory(filter);
 
-    res.json({
-      success: true,
-      history: history.logs,
-      total: history.total
-    });
-
+    return sendSuccess(res, history.logs, { meta: { total: history.total } });
   } catch (error) {
-    logger.error('Get SAP sync history controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching sync history'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching sync history');
   }
 }
 
 /**
  * Test SAP connection
  * GET /api/v1/integrations/sap/test-connection
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function testSAPConnection(req, res) {
   try {
     const result = await sapSyncService.testConnection();
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Connection test failed',
-        message: result.errorMessage
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: result.errorMessage });
     }
 
-    res.json({
-      success: true,
-      message: 'SAP connection successful',
-      details: result.details
-    });
-
+    return sendSuccess(res, result.details, { meta: { message: 'SAP connection successful' } });
   } catch (error) {
-    logger.error('Test SAP connection controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while testing connection'
-    });
+    return handleControllerError(res, error, 'An error occurred while testing connection');
   }
 }
 
