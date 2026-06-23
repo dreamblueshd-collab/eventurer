@@ -259,8 +259,8 @@ Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
 - [x] `lib/auth.ts` (login/validate -> `data`, forgot/reset -> `meta.message`), `fetch-with-auth.ts` — **SELESAI**
 - [x] `lib/master-data.ts`, `lib/org-hierarchy.ts`, `lib/users.ts` — **SELESAI**
 - [x] `lib/mappings.ts` — **SELESAI**
-- [ ] `lib/survey-events.ts`, `lib/survey-questions.ts`, `lib/public-survey.ts`,
-      `lib/survey-distribution.ts`
+- [x] `lib/survey-events.ts`, `lib/survey-questions.ts`, `lib/public-survey.ts`,
+      `lib/survey-distribution.ts` — **SELESAI** (shared `api-utils.getErrorMessage` jadi envelope-aware)
 - [ ] `lib/approvals.ts`
 - [ ] `lib/doorprize-api.ts`
 - [ ] `lib/reports.ts`, `lib/audit.ts`, `lib/email-blast.ts`, `lib/operations.ts`

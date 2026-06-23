@@ -37,14 +37,14 @@ export async function fetchSurveyQuestions(
     });
 
     const body = (await response.json().catch(() => null)) as
-      | { success?: boolean; questions?: SurveyQuestion[]; message?: string; error?: string }
+      | { success?: boolean; data?: SurveyQuestion[]; message?: string; error?: unknown }
       | null;
 
     if (!response.ok || !body?.success) {
       return { success: false, questions: [], message: getErrorMessage(body, "Gagal memuat pertanyaan") };
     }
 
-    return { success: true, questions: Array.isArray(body.questions) ? body.questions : [] };
+    return { success: true, questions: Array.isArray(body.data) ? body.data : [] };
   } catch {
     return { success: false, questions: [], message: "Gagal terhubung ke server" };
   }
@@ -68,14 +68,14 @@ export async function fetchSurveyResponseStatistics(
     });
 
     const body = (await response.json().catch(() => null)) as
-      | { success?: boolean; statistics?: { totalResponses?: unknown }; message?: string; error?: string }
+      | { success?: boolean; data?: { totalResponses?: unknown }; message?: string; error?: unknown }
       | null;
 
     if (!response.ok || !body?.success) {
       return { success: false, totalResponses: 0, message: getErrorMessage(body, "Gagal memuat statistik response") };
     }
 
-    const total = Number(body.statistics?.totalResponses ?? 0);
+    const total = Number(body.data?.totalResponses ?? 0);
     return { success: true, totalResponses: Number.isFinite(total) ? total : 0 };
   } catch {
     return { success: false, totalResponses: 0, message: "Gagal terhubung ke server" };
@@ -101,14 +101,14 @@ export async function createSurveyQuestion(
     });
 
     const body = (await response.json().catch(() => null)) as
-      | { success?: boolean; question?: SurveyQuestion; message?: string; error?: string }
+      | { success?: boolean; data?: SurveyQuestion; message?: string; error?: unknown }
       | null;
 
-    if (!response.ok || !body?.success || !body.question) {
+    if (!response.ok || !body?.success || !body.data) {
       return { success: false, message: getErrorMessage(body, "Gagal menambah pertanyaan") };
     }
 
-    return { success: true, question: body.question };
+    return { success: true, question: body.data };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -194,14 +194,14 @@ export async function uploadSurveyQuestionImage(
     });
 
     const body = (await response.json().catch(() => null)) as
-      | { success?: boolean; imageUrl?: string; message?: string; error?: string }
+      | { success?: boolean; data?: { imageUrl?: string }; message?: string; error?: unknown }
       | null;
 
-    if (!response.ok || body?.success !== true || !body.imageUrl) {
+    if (!response.ok || body?.success !== true || !body.data?.imageUrl) {
       return { success: false, message: getErrorMessage(body, "Gagal upload gambar pertanyaan") };
     }
 
-    return { success: true, imageUrl: body.imageUrl };
+    return { success: true, imageUrl: body.data.imageUrl };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }

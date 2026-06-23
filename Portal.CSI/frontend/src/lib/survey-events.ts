@@ -91,8 +91,8 @@ export async function fetchSurveyOverview(filter?: {
       };
     }
 
-    const surveys = Array.isArray(resolved.payload.surveys)
-      ? (resolved.payload.surveys as SurveyOverviewItem[])
+    const surveys = Array.isArray(resolved.payload.data)
+      ? (resolved.payload.data as SurveyOverviewItem[])
       : [];
 
     const normalizedSurveys = surveys.map((survey) => ({
@@ -138,11 +138,9 @@ export async function fetchEventsOverview(filter?: {
       };
     }
 
-    const events = Array.isArray(result.payload.events)
-      ? (result.payload.events as SurveyOverviewItem[])
-      : Array.isArray(result.payload.surveys)
-        ? (result.payload.surveys as SurveyOverviewItem[])
-        : [];
+    const events = Array.isArray(result.payload.data)
+      ? (result.payload.data as SurveyOverviewItem[])
+      : [];
 
     const normalizedEvents = events.map((event) => ({
       ...event,
@@ -178,7 +176,7 @@ export async function createSurveyUnderEvent(
       return { success: false, message: getErrorMessage(result.payload, "Gagal membuat survey") };
     }
 
-    const survey = result.payload.survey as { SurveyId?: number } | undefined;
+    const survey = result.payload.data as { SurveyId?: number } | undefined;
     return { success: true, surveyId: survey?.SurveyId };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
@@ -275,7 +273,7 @@ export async function fetchSurveyById(
       };
     }
 
-    const survey = (resolved.payload.survey ?? resolved.payload.event) as SurveyDetail | undefined;
+    const survey = resolved.payload.data as SurveyDetail | undefined;
     if (!survey) {
       return { success: false, message: "Detail event tidak ditemukan" };
     }
@@ -509,7 +507,7 @@ export async function fetchEventDetail(
       };
     }
 
-    const event = result.payload.event as EventDetail | undefined;
+    const event = result.payload.data as EventDetail | undefined;
     if (!event) {
       return { success: false, message: "Detail event tidak ditemukan" };
     }
@@ -596,14 +594,14 @@ export async function uploadSurveyStyleImage(
     );
 
     const body = (await response.json().catch(() => null)) as
-      | { success?: boolean; imageUrl?: string; message?: string; error?: string }
+      | { success?: boolean; data?: { imageUrl?: string }; message?: string; error?: unknown }
       | null;
 
-    if (!response.ok || body?.success !== true || !body.imageUrl) {
+    if (!response.ok || body?.success !== true || !body.data?.imageUrl) {
       return { success: false, message: getErrorMessage(body, "Gagal upload gambar") };
     }
 
-    return { success: true, imageUrl: body.imageUrl };
+    return { success: true, imageUrl: body.data.imageUrl };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
