@@ -1,0 +1,347 @@
+/* ── DatePicker container ── */
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.inputWrapper {
+  position: relative;
+}
+
+.input {
+  width: 100%;
+  height: 38px;
+  padding: 0 36px 0 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1f2937;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+
+.input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: #9ca3af;
+}
+
+.inputIcon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  pointer-events: none;
+  color: #6b7280;
+}
+
+/* ── Calendar popup ── */
+.popup {
+  /* The popup is portalled to document.body, so use position: fixed
+     (top/left are already in viewport coords from getBoundingClientRect
+     + window.scroll). This lets it overflow scrollable ancestors such as
+     a modal with overflow-y: auto. */
+  position: fixed;
+  z-index: 2147483647;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 12px;
+  width: 290px;
+  max-height: 420px;
+  overflow-y: auto;
+  animation: dpFadeIn 0.18s ease-out;
+  box-sizing: border-box;
+}
+
+@keyframes dpFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header with nav and selectors ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 4px;
+}
+
+.navBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+
+.navBtn:hover {
+  background: #e2e8f0;
+}
+
+.selectors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.monthSelect,
+.yearSelect {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.monthSelect:focus,
+.yearSelect:focus {
+  border-color: #93c5fd;
+}
+
+.monthSelect {
+  width: 100px;
+}
+
+.yearSelect {
+  width: 68px;
+}
+
+/* ── Calendar grid ── */
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  width: 100%;
+}
+
+.dayHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-align: center;
+  padding: 6px 0;
+  text-transform: uppercase;
+}
+
+.dayCell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #374151;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+}
+
+.dayCell:hover:not(:disabled) {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.dayCell:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dayCellOtherMonth {
+  color: #d1d5db;
+}
+
+.dayCellOtherMonth:hover:not(:disabled) {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.dayCellToday {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+}
+
+.dayCellToday:hover:not(:disabled) {
+  background: #fde68a;
+}
+
+.dayCellSelected {
+  background: #1d4ed8;
+  color: #fff;
+  font-weight: 700;
+}
+
+.dayCellSelected:hover:not(:disabled) {
+  background: #1e40af;
+  color: #fff;
+}
+
+/* ── Time section (spinner style) ── */
+.timeSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.timeDivider {
+  width: 100%;
+  height: 1px;
+  background: #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.timeIcon {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.timeSpinner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spinnerCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.spinnerBtn {
+  width: 36px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 10px;
+  color: #6b7280;
+  transition: background 0.12s, color 0.12s;
+}
+
+.spinnerBtn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.spinnerValue {
+  width: 40px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.spinnerSeparator {
+  font-size: 20px;
+  font-weight: 700;
+  color: #374151;
+  padding: 0 2px;
+  align-self: center;
+}
+
+/* ── Footer ── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  gap: 6px;
+}
+
+.todayBtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.todayBtn:hover {
+  background: #eff6ff;
+}
+
+.confirmBtn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #1d4ed8;
+  border: none;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+
+.confirmBtn:hover {
+  background: #1e40af;
+}
+
+.clearBtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.12s;
+  margin-left: auto;
+}
+
+.clearBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}

@@ -1,0 +1,114 @@
+"use client";
+
+import { getAccessToken } from "@/lib/auth";
+
+const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
+
+export type BusinessUnitOption = {
+  BusinessUnitId: number;
+  Name: string;
+  IsActive: boolean;
+};
+
+export type DivisionOption = {
+  DivisionId: number | string; // Allow string for auto-generated IDs
+  BusinessUnitId: number;
+  Name: string;
+  IsActive: boolean;
+};
+
+export type DepartmentOption = {
+  DepartmentId: number | string; // Allow string for auto-generated IDs  
+  DivisionId: number | string; // Allow string for auto-generated IDs
+  Name: string;
+  IsActive: boolean;
+};
+
+function getErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback;
+  const data = payload as Record<string, unknown>;
+  if (typeof data.message === "string") return data.message;
+  if (typeof data.error === "string") return data.error;
+  return fallback;
+}
+
+export async function fetchOrgHierarchy(): Promise<{
+  success: boolean;
+  businessUnits: BusinessUnitOption[];
+  divisions: DivisionOption[];
+  departments: DepartmentOption[];
+  message?: string;
+}> {
+  const token = getAccessToken();
+  if (!token) {
+    return {
+      success: false,
+      businessUnits: [],
+      divisions: [],
+      departments: [],
+      message: "Sesi login tidak ditemukan",
+    };
+  }
+
+  try {
+    const [buResponse, divResponse, deptResponse] = await Promise.all([
+      fetch(`${API_BASE_PATH}/business-units`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+      fetch(`${API_BASE_PATH}/divisions`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+      fetch(`${API_BASE_PATH}/departments`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+    ]);
+
+    const [buPayload, divPayload, deptPayload] = await Promise.all([
+      buResponse.json().catch(() => null),
+      divResponse.json().catch(() => null),
+      deptResponse.json().catch(() => null),
+    ]);
+
+    if (!buResponse.ok || !divResponse.ok || !deptResponse.ok) {
+      return {
+        success: false,
+        businessUnits: [],
+        divisions: [],
+        departments: [],
+        message:
+          getErrorMessage(buPayload, "") ||
+          getErrorMessage(divPayload, "") ||
+          getErrorMessage(deptPayload, "Gagal memuat data organisasi"),
+      };
+    }
+
+    const businessUnits = ((buPayload as { businessUnits?: BusinessUnitOption[] } | null)?.businessUnits || []).filter(
+      (item) => item?.IsActive !== false
+    );
+    const divisions = ((divPayload as { divisions?: DivisionOption[] } | null)?.divisions || []).filter(
+      (item) => item?.IsActive !== false
+    );
+    const departments = ((deptPayload as { departments?: DepartmentOption[] } | null)?.departments || []).filter(
+      (item) => item?.IsActive !== false
+    );
+
+    return {
+      success: true,
+      businessUnits,
+      divisions,
+      departments,
+    };
+  } catch {
+    return {
+      success: false,
+      businessUnits: [],
+      divisions: [],
+      departments: [],
+      message: "Gagal terhubung ke server",
+    };
+  }
+}
+

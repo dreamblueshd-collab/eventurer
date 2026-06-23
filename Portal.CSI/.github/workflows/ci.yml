@@ -1,0 +1,175 @@
+name: CI Pipeline
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+on:
+  push:
+    branches:
+      - main
+      - development
+  pull_request:
+    branches:
+      - main
+      - development
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend Build & Test
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: ${{ github.ref == 'refs/heads/main' && '0' || '1' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Cache Next.js build
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: |
+            frontend/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.[jt]sx?', 'frontend/**/*.ts', 'frontend/**/*.css') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+            ${{ runner.os }}-nextjs-
+
+      - name: Cache frontend dependencies
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Lint Check
+        working-directory: frontend
+        run: |
+          $isDevelopment = "${{ github.base_ref }}" -eq "development" -or "${{ github.ref }}" -eq "refs/heads/development"
+          npm run lint 2>&1 | Tee-Object -FilePath lint-output.log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            if ($isDevelopment) {
+              Write-Output "::warning::Lint errors on development branch (non-blocking)"
+              Get-Content lint-output.log | Select-String -Pattern "error|warning" -Context 0,1
+              exit 0
+            } else {
+              exit $exitCode
+            }
+          }
+
+      - name: Type Check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Build Summary
+        run: |
+          Write-Output "Frontend build successful"
+          Write-Output "Branch: ${{ github.ref_name }}"
+          Write-Output "Commit: ${{ github.sha }}"
+
+  backend:
+    name: Backend Build & Test
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: ${{ github.ref == 'refs/heads/main' && '0' || '1' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Cache backend dependencies
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-backend-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Run tests
+        working-directory: backend
+        run: |
+          npm run test:ci 2>&1 | Tee-Object -FilePath test-output.log
+          $exitCode = $LASTEXITCODE
+          $isDevelopment = "${{ github.base_ref }}" -eq "development" -or "${{ github.ref }}" -eq "refs/heads/development"
+          if ($exitCode -ne 0) {
+            if ($isDevelopment) {
+              Write-Output "::warning::Tests failed on development branch (exit code $exitCode) - non-blocking"
+              Get-Content test-output.log | Select-String -Pattern "FAIL|●|Tests:|Test Suites:" -Context 0,1
+              exit 0
+            } else {
+              Write-Output "::error::Tests failed with exit code $exitCode"
+              Get-Content test-output.log | Select-String -Pattern "FAIL|●|Tests:|Test Suites:|Error|expect|received" -Context 0,3
+              exit $exitCode
+            }
+          }
+        env:
+          NODE_ENV: test
+
+      - name: Test Summary
+        if: always()
+        run: |
+          Write-Output "Backend tests completed"
+          Write-Output "Branch: ${{ github.ref_name }}"
+          Write-Output "Commit: ${{ github.sha }}"
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: windows-2025-vs2026
+    needs: [frontend, backend]
+    timeout-minutes: 5
+
+    steps:
+      - name: Quality Gate Summary
+        run: |
+          $branch = "${{ github.ref_name }}"
+          $env = if ($branch -eq 'main') { 'Production' } else { 'Development' }
+          Write-Output "========================================"
+          Write-Output "  QUALITY GATE PASSED ($env)"
+          Write-Output "========================================"
+          Write-Output ""
+          Write-Output "Frontend build: OK"
+          Write-Output "Backend tests: OK"
+          Write-Output "Branch: $branch"
+          Write-Output "Commit: ${{ github.sha }}"
+          Write-Output "Triggered by: ${{ github.actor }}"

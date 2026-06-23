@@ -1,0 +1,677 @@
+/* ═══════════════════════════════════════════════════════════════
+   Doorprize Draw Page — Full 3D Dark Theme
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: perspective(800px) rotateX(-10deg) scale(0.85); }
+  to   { opacity: 1; transform: perspective(800px) rotateX(0) scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes auroraRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes particleDrift {
+  0% { transform: translateY(0) translateX(0); opacity: 0.6; }
+  100% { transform: translateY(-30px) translateX(15px); opacity: 0.2; }
+}
+
+@keyframes neonPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4), 0 0 40px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+  50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.6), 0 0 60px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255,255,255,0.15); }
+}
+
+@keyframes floatCard {
+  0%, 100% { transform: perspective(800px) translateY(0) rotateX(0); }
+  50% { transform: perspective(800px) translateY(-6px) rotateX(1deg); }
+}
+
+/* ─── Fullscreen container ───────────────────────────────────── */
+
+.fullscreen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #050510;
+  position: relative;
+  padding: 20px;
+  overflow: hidden;
+  perspective: 1000px;
+}
+
+/* Rotating aurora */
+.fullscreen::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background:
+    conic-gradient(from 0deg at 40% 50%,
+      rgba(99, 102, 241, 0.12) 0deg,
+      rgba(139, 92, 246, 0.08) 60deg,
+      transparent 120deg,
+      rgba(59, 130, 246, 0.1) 200deg,
+      transparent 280deg,
+      rgba(6, 182, 212, 0.06) 330deg,
+      rgba(99, 102, 241, 0.12) 360deg
+    );
+  animation: auroraRotate 35s linear infinite;
+  z-index: 0;
+}
+
+/* Particles */
+.fullscreen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle 2px at 15% 25%, rgba(99, 102, 241, 0.5), transparent 2px),
+    radial-gradient(circle 1.5px at 55% 15%, rgba(6, 182, 212, 0.5), transparent 1.5px),
+    radial-gradient(circle 2px at 85% 55%, rgba(139, 92, 246, 0.4), transparent 2px),
+    radial-gradient(circle 1.5px at 35% 75%, rgba(59, 130, 246, 0.5), transparent 1.5px),
+    radial-gradient(circle 2px at 75% 85%, rgba(236, 72, 153, 0.3), transparent 2px),
+    radial-gradient(circle 1px at 25% 45%, rgba(6, 182, 212, 0.5), transparent 1px),
+    radial-gradient(circle 2.5px at 90% 30%, rgba(99, 102, 241, 0.35), transparent 2.5px),
+    radial-gradient(circle 1px at 65% 65%, rgba(139, 92, 246, 0.4), transparent 1px);
+  animation: particleDrift 18s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+.fullscreenWithBg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.fullscreenWithBg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 16, 0.7);
+  z-index: 0;
+}
+
+.fullscreen > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Back button ────────────────────────────────────────────── */
+
+.backBtn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  backdrop-filter: blur(8px);
+}
+
+.backBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+  transform: translateY(-1px);
+}
+
+/* ─── Top-right controls area ────────────────────────────────── */
+
+.topRightControls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settingsBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.25s;
+  backdrop-filter: blur(8px);
+  line-height: 1;
+}
+
+.settingsBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+}
+
+.fullscreenBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  backdrop-filter: blur(8px);
+}
+
+.fullscreenBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+}
+
+/* ─── Settings panel ─────────────────────────────────────────── */
+
+.settingsPanel {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  z-index: 20;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 280px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.08);
+  animation: fadeIn 0.2s ease forwards;
+}
+
+.settingsOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+}
+
+.settingsTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.settingsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.settingsRow:last-child {
+  margin-bottom: 0;
+}
+
+.settingsLabel {
+  font-size: 13px;
+  color: #cbd5e1;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settingsSelect {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.settingsSelect:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+
+.settingsSelect option {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.settingsToggle {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settingsToggleOn {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: #a5b4fc;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+}
+
+/* ─── Speed slider ───────────────────────────────────────────── */
+
+.sliderWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settingsSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settingsSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settingsSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.settingsSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.settingsSlider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sliderValue {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a5b4fc;
+  min-width: 24px;
+  text-align: right;
+}
+
+/* ─── Settings panel actions ─────────────────────────────────── */
+
+.settingsPanelActions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(139, 92, 246, 0.15);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settingsBtnClose {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+  border-radius: 8px;
+  padding: 7px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settingsBtnClose:hover {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #e0d5ff;
+}
+
+/* ─── Gift card (3D) ─────────────────────────────────────────── */
+
+.giftCard {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.4),
+    0 10px 20px rgba(0, 0, 0, 0.2),
+    0 0 30px rgba(99, 102, 241, 0.1);
+  max-width: 320px;
+  width: 100%;
+  animation: floatCard 4s ease-in-out infinite;
+  margin-bottom: 28px;
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.giftCard:hover {
+  transform: perspective(800px) rotateX(2deg) rotateY(-2deg) translateY(-4px);
+  box-shadow:
+    0 40px 80px rgba(0, 0, 0, 0.5),
+    0 12px 24px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(99, 102, 241, 0.15);
+}
+
+.giftImage {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.giftImagePlaceholder {
+  width: 100%;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe, #e0e7ff);
+  font-size: 64px;
+}
+
+.giftInfo {
+  padding: 18px 20px;
+  text-align: center;
+}
+
+.giftName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 4px;
+}
+
+.giftQuota {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ─── Navigation buttons (PREV / DRAW / NEXT) ───────────────── */
+
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.btnPrev,
+.btnNext {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 999px;
+  padding: 10px 32px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  backdrop-filter: blur(4px);
+}
+
+.btnPrev:hover:not(:disabled),
+.btnNext:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+}
+
+.btnPrev:disabled,
+.btnNext:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btnDraw {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 48px;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s;
+  animation: neonPulse 3s ease-in-out infinite;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btnDraw:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 0 40px rgba(99, 102, 241, 0.6), 0 12px 30px rgba(99, 102, 241, 0.4);
+}
+
+.btnDraw:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.btnDraw:disabled {
+  background: rgba(100, 116, 139, 0.3);
+  cursor: not-allowed;
+  box-shadow: none;
+  animation: none;
+  transform: none;
+}
+
+/* ─── Swiper area ────────────────────────────────────────────── */
+
+.swiperArea {
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 24px;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+/* ─── Loading / Error states ─────────────────────────────────── */
+
+.loadingWrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #050510;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loadingText {
+  font-size: 14px;
+  color: rgba(196, 181, 253, 0.7);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.errorWrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #050510;
+  text-align: center;
+  padding: 20px;
+}
+
+.errorText {
+  font-size: 15px;
+  color: #fca5a5;
+  margin: 0;
+}
+
+.errorBackBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s;
+  backdrop-filter: blur(4px);
+}
+
+.errorBackBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+/* ─── Event title overlay ────────────────────────────────────── */
+
+.eventTitle {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 14px;
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ─── No quota message ───────────────────────────────────────── */
+
+.noQuotaMsg {
+  color: #fbbf24;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-align: center;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .giftCard {
+    max-width: 260px;
+    animation: none;
+  }
+
+  .giftImage,
+  .giftImagePlaceholder {
+    height: 160px;
+  }
+
+  .controls {
+    gap: 10px;
+  }
+
+  .btnPrev,
+  .btnNext {
+    padding: 8px 20px;
+    font-size: 13px;
+  }
+
+  .btnDraw {
+    padding: 12px 32px;
+    font-size: 15px;
+  }
+
+  .eventTitle {
+    display: none;
+  }
+
+  .settingsPanel {
+    right: 12px;
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fullscreen {
+    padding: 16px;
+  }
+
+  .giftCard {
+    max-width: 100%;
+  }
+
+  .controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .backBtn {
+    top: 12px;
+    left: 12px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .topRightControls {
+    top: 12px;
+    right: 12px;
+  }
+}

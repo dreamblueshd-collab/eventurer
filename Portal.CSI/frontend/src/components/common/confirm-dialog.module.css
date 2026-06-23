@@ -1,0 +1,77 @@
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.dialogCard {
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+  overflow: hidden;
+}
+
+.dialogHeader {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.dialogBody {
+  padding: 14px 18px 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.dialogFooter {
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelButton {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.confirmPrimary {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.confirmDanger {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

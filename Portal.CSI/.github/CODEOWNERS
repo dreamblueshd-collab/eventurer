@@ -1,0 +1,15 @@
+# CODEOWNERS file for Portal.CSI
+# Code owners will be requested for review when PRs are opened to main branch
+# Development branch does not require code owner approval
+
+# Default owners for everything in the repo (PR to main branch)
+* @andikl2024 @Sahrun @murjito-digital @AOP-Nico
+
+# Frontend team
+/frontend/ @andikl2024 @Sahrun @murjito-digital @AOP-Nico
+
+# Backend team
+/backend/ @andikl2024 @Sahrun @murjito-digital @AOP-Nico
+
+# CI/CD and infrastructure
+/.github/ @andikl2024 @Sahrun @murjito-digital @AOP-Nico

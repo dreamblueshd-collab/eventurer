@@ -1,0 +1,239 @@
+/* ─── Pagination ──────────────────────────────────────────────── */
+.wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f0f5;
+}
+
+.info {
+  font-size: 12.5px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Base button ─────────────────────────────────────────────── */
+.btn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 8px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ─── Active page ─────────────────────────────────────────────── */
+.btnActive {
+  border-color: #1d4ed8;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(29, 78, 216, 0.25);
+}
+
+.btnActive:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  border-color: #1e40af;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.3);
+}
+
+/* ─── Nav (Prev/Next) buttons ─────────────────────────────────── */
+.btnNav {
+  padding: 0 12px;
+  gap: 4px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.btnNav:hover:not(:disabled) {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+/* ─── Chevron icons ───────────────────────────────────────────── */
+.chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* ─── Dots ────────────────────────────────────────────────────── */
+.dots {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 0 4px;
+  min-width: 24px;
+  text-align: center;
+  letter-spacing: 1px;
+  user-select: none;
+}
+
+/* ─── Left Section ────────────────────────────────────────────── */
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* ─── Page Size Control ───────────────────────────────────────── */
+.pageSizeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.pageSizeControl label {
+  font-weight: 500;
+}
+
+.pageSizeSelect {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+.pageSizeSelect:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.pageSizeSelect:focus {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+
+/* ─── Jump To Page ────────────────────────────────────────────── */
+.jumpToPage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid #e2e8f0;
+  font-size: 12.5px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.jumpToPage label {
+  font-weight: 500;
+}
+
+.jumpToPageInput {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 6px;
+  width: 60px;
+  height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+.jumpToPageInput:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.jumpToPageInput:focus {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+
+.jumpToPageInput::placeholder {
+  color: #94a3b8;
+}
+
+.jumpToPageButton {
+  min-width: 46px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.jumpToPageButton:hover:not(:disabled) {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .wrap {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btnNav span {
+    display: none;
+  }
+
+  .btnNav {
+    padding: 0 8px;
+  }
+
+  .leftSection {
+    width: 100%;
+  }
+
+  .jumpToPage {
+    margin-left: 8px;
+    padding-left: 8px;
+  }
+}

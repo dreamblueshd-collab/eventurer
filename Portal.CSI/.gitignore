@@ -1,0 +1,82 @@
+# Dependencies
+**/node_modules/
+
+# Build outputs
+**/.next/
+**/dist/
+**/build/
+**/out/
+
+# Testing
+**/coverage/
+**/.nyc_output/
+
+# Logs
+**/logs/
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/iisnode/
+
+# Uploads
+**/uploads/
+
+# Environment variables
+**/.env
+**/.env.*
+**/.env.local
+**/.env.*.local
+!**/.env.example
+!**/.env.local.example
+
+# IDE
+.vscode/
+.idea/
+.kiro/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Git
+.git/
+
+# Misc
+*.tmp
+*.temp
+**/web.config.backup
+**/*.backup
+**/*.bak
+
+# Scripts (development/deployment helpers)
+*.bat
+*.ps1
+# Exception: Release automation (token stored separately in .env.local)
+!create-github-release.ps1
+
+# Temporary documentation/notes (development only)
+FIX-*.md
+TEST-*.md
+DIAGNOSTIC-*.md
+CHECK-*.md
+CONTEXT-PROMPT.md
+**/temp_*.txt
+**/temp_*.log
+
+# Development helper scripts (one-off, not part of codebase)
+_compare_defaults.js
+_fix_defaults.sql
+backend/CHECK_SCHEMA_GCP.sql
+backend/FIX_DEFAULT_CONSTRAINTS.sql
+
+# Claude Code config
+.claude/
+
+# --- ltm-power ---
+ltm/
+# --- /ltm-power ---

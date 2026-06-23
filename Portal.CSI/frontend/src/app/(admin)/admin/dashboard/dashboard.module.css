@@ -1,0 +1,513 @@
+/* ── Animations ── */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Summary stats row ── */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.summaryCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  animation: riseIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.summaryCard:nth-child(1) { animation-delay: 0s; }
+.summaryCard:nth-child(2) { animation-delay: 0.04s; }
+.summaryCard:nth-child(3) { animation-delay: 0.08s; }
+.summaryCard:nth-child(4) { animation-delay: 0.12s; }
+
+.summaryCard:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+.summaryCard::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.summaryBlue::before   { background: linear-gradient(90deg, #1d4ed8, #60a5fa); }
+.summaryGreen::before  { background: linear-gradient(90deg, #15803d, #4ade80); }
+.summaryAmber::before  { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.summaryPurple::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+
+.summaryIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.iconBlueBg   { background: #dbeafe; }
+.iconGreenBg  { background: #dcfce7; }
+.iconAmberBg  { background: #fef3c7; }
+.iconPurpleBg { background: #ede9fe; }
+
+.summaryContent { flex: 1; min-width: 0; }
+
+.summaryLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.summaryValue {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 4px 0 0;
+}
+
+.summaryMeta {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 4px 0 0;
+}
+
+/* ── Section card ── */
+.sectionCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  animation: riseIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.14s;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0f0f5;
+}
+
+.sectionIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.iconBlue   { background: #dbeafe; color: #1d4ed8; }
+.iconGreen  { background: #dcfce7; color: #15803d; }
+.iconAmber  { background: #fef3c7; color: #92400e; }
+
+.sectionTitleWrap { flex: 1; }
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+.sectionSubtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.sectionHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.lastUpdated {
+  font-size: 11px;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* ── Filter section ── */
+.filterCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 24px;
+  margin-bottom: 20px;
+  animation: riseIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.16s;
+  position: relative;
+  z-index: 10;
+}
+
+.filterHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filterTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filterIcon { font-size: 14px; }
+
+/* ── Period range warning ── */
+.periodWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #d97706;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-top: 4px;
+  animation: fadeSlide 0.2s ease both;
+}
+
+/* ── Table styling ── */
+.eventTitle {
+  font-weight: 600;
+  color: #111827;
+}
+
+.periodStack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.periodDate {
+  font-size: 12.5px;
+  color: #334155;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.periodSep {
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.scoreCell {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.respondentCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+/* ── Status badges ── */
+.badgeActive {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.badgeActive::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #15803d;
+}
+
+.badgeClosed {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.badgeClosed::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+/* ── Action button ── */
+.viewReportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.viewReportBtn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.metaDash {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+/* ── Empty state ── */
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+}
+.emptyIcon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+.emptyTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 4px;
+}
+.emptyDesc {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ── Error text ── */
+.errorText {
+  color: #b91c1c;
+  font-size: 13px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  animation: fadeSlide 0.25s ease both;
+}
+
+/* ── Sortable header ── */
+.sortableHeader {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+  padding-right: 24px !important;
+}
+
+.sortableHeader:hover {
+  background: #f9fafb;
+  color: #1d4ed8;
+}
+
+.sortIcon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: #9ca3af;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.sortableHeader:hover .sortIcon {
+  opacity: 1;
+  color: #1d4ed8;
+}
+
+/* ── Table controls (page size & info) ── */
+.tableControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 0 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pageSizeControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageSizeLabel {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.pageSizeSelect {
+  padding: 6px 32px 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.pageSizeSelect:hover {
+  border-color: #9ca3af;
+  background-color: #f9fafb;
+}
+
+.pageSizeSelect:focus {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+
+.tableInfo {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ── Pagination ── */
+.paginationWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f5;
+}
+
+.paginationBtn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.paginationBtn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #1d4ed8;
+}
+
+.paginationBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.paginationActive {
+  background: #1d4ed8;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+
+.paginationActive:hover {
+  background: #1e40af;
+  border-color: #1e40af;
+  color: #ffffff;
+}
+
+.paginationEllipsis {
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .summaryGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .summaryGrid { grid-template-columns: 1fr; }
+  .sectionCard,
+  .filterCard { padding: 16px; }
+  .sectionHeader { flex-wrap: wrap; }
+  .sectionHeaderRight { width: 100%; margin-top: 6px; }
+  .tableControls { flex-direction: column; align-items: flex-start; }
+  .tableInfo { order: -1; width: 100%; }
+  .paginationWrap { flex-wrap: wrap; }
+}

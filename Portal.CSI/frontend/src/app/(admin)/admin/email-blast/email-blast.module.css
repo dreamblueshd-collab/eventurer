@@ -1,0 +1,584 @@
+/* ── Layout ── */
+.pageLayout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+.singleCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mainCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sideCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Preview bar (horizontal, above form) ── */
+.previewBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.previewItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-width: 100px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.previewValue {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.previewLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ── Field error ── */
+.fieldError {
+  font-size: 12px;
+  color: #dc2626;
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.inputError {
+  border-color: #fca5a5 !important;
+  background: #fef2f2 !important;
+}
+
+/* ── Section card ── */
+.sectionCard {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 22px 24px;
+  animation: riseIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.sectionCard:nth-child(2) { animation-delay: 0.04s; }
+.sectionCard:nth-child(3) { animation-delay: 0.08s; }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sectionIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.iconBlue   { background: #dbeafe; color: #1d4ed8; }
+.iconGreen  { background: #dcfce7; color: #15803d; }
+.iconPurple { background: #ede9fe; color: #7c3aed; }
+.iconAmber  { background: #fef3c7; color: #92400e; }
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.sectionSubtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* ── Form grid inside sections ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+/* ── Textarea ── */
+.textarea {
+  min-height: 140px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.textareaSmall {
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* ── Hint ── */
+.hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+/* ── Upload label row ── */
+.uploadLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.uploadLabelRow label {
+  margin-bottom: 0;
+}
+
+.btnTemplate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btnTemplate:hover {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.13);
+}
+
+/* ── File upload area ── */
+.fileDropZone {
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  background: #fafbff;
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+  position: relative;
+}
+
+.fileDropZone:hover {
+  border-color: #93a8f0;
+  background: #f0f4ff;
+}
+
+.fileDropIcon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.fileDropLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.fileDropHint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+.fileDropInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fileChosen {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* ── Toggle switch ── */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0 4px;
+}
+
+.switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switchTrack {
+  position: absolute;
+  inset: 0;
+  background: #d1d5db;
+  border-radius: 999px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.switchTrack::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s;
+}
+
+.switch input:checked + .switchTrack {
+  background: #1d4ed8;
+}
+
+.switch input:checked + .switchTrack::after {
+  transform: translateX(18px);
+}
+
+.toggleLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.toggleDesc {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ── Calendar invite fields ── */
+.calendarFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding-top: 8px;
+  animation: fadeSlide 0.3s ease both;
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Actions bar ── */
+.actionsBar {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  animation: riseIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.12s;
+}
+
+.btnReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnReset:hover {
+  color: #374151;
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.btnSend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 28px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btnSend:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);
+  transform: translateY(-1px);
+}
+
+.btnSend:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(29, 78, 216, 0.2);
+}
+
+.btnSend:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSendIcon {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.btnSend:hover:not(:disabled) .btnSendIcon {
+  transform: translateX(3px);
+}
+
+/* ── Result banner ── */
+.result {
+  margin-top: 14px;
+  font-size: 13px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  animation: fadeSlide 0.25s ease both;
+}
+
+.resultSuccess {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.resultError {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* ── Stats preview card ── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.statBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+
+.statBox:hover {
+  border-color: #cbd5e1;
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+/* ── Tips sidebar ── */
+.tipsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tipItem {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.tipIcon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .pageLayout {
+    grid-template-columns: 1fr;
+  }
+  .sideCol {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .sideCol > * {
+    flex: 1 1 280px;
+  }
+}
+
+@media (max-width: 600px) {
+  .grid,
+  .calendarFields {
+    grid-template-columns: 1fr;
+  }
+  .previewBar {
+    gap: 8px;
+  }
+  .previewItem {
+    min-width: 70px;
+    padding: 8px 12px;
+  }
+  .sectionCard {
+    padding: 16px;
+  }
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Mode selector (immediate / schedule) ── */
+.modeSelector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.modeBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modeBtn:hover {
+  color: #374151;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.modeBtnActive {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.08);
+}
+
+/* ── Schedule fields ── */
+.scheduleFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+  animation: fadeSlide 0.3s ease both;
+}
+
+.scheduleRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (max-width: 600px) {
+  .scheduleRow {
+    grid-template-columns: 1fr;
+  }
+}
