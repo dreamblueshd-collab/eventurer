@@ -2,22 +2,8 @@ const { body, param, validationResult } = require('express-validator');
 const applicationService = require('../services/applicationService');
 const ExcelJS = require('exceljs');
 const logger = require('../config/logger');
-
-function handleServiceError(res, error, fallbackMessage) {
-  const statusCode = error.statusCode || 500;
-  if (statusCode >= 500) {
-    logger.error(fallbackMessage, error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: fallbackMessage
-    });
-  }
-
-  return res.status(statusCode).json({
-    error: error.name || 'Request failed',
-    message: fallbackMessage
-  });
-}
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 /**
  * Validation rules for creating an application
@@ -54,63 +40,40 @@ const updateApplicationValidation = [
 /**
  * Create a new application
  * POST /api/v1/applications
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createApplication(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const applicationData = req.body;
-    const application = await applicationService.createApplication(applicationData);
+    const application = await applicationService.createApplication(req.body);
 
-    res.status(201).json({
-      success: true,
-      message: 'Application created successfully',
-      application
-    });
-
+    return sendCreated(res, application, { meta: { message: 'Application created successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while creating application');
+    return handleControllerError(res, error, 'An error occurred while creating application');
   }
 }
 
 /**
  * Get all applications
  * GET /api/v1/applications
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getApplications(req, res) {
   try {
     const includeInactive = req.query.includeInactive === 'true';
     const applications = await applicationService.getApplications({ includeInactive });
 
-    res.json({
-      success: true,
-      applications
-    });
-
+    return sendSuccess(res, applications);
   } catch (error) {
-    logger.error('Get applications controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat applications'
-    });
+    return handleControllerError(res, error, 'Gagal memuat applications');
   }
 }
 
 /**
  * Get application by ID
  * GET /api/v1/applications/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getApplicationById(req, res) {
   try {
@@ -118,76 +81,47 @@ async function getApplicationById(req, res) {
     const application = await applicationService.getApplicationById(applicationId);
 
     if (!application) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Application not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Application not found' });
     }
 
-    res.json({
-      success: true,
-      application
-    });
-
+    return sendSuccess(res, application);
   } catch (error) {
-    logger.error('Get application by ID controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat application'
-    });
+    return handleControllerError(res, error, 'Gagal memuat application');
   }
 }
 
 /**
  * Update application
  * PUT /api/v1/applications/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateApplication(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const applicationId = parseInt(req.params.id, 10);
-    const updates = req.body;
+    const application = await applicationService.updateApplication(applicationId, req.body);
 
-    const application = await applicationService.updateApplication(applicationId, updates);
-
-    res.json({
-      success: true,
-      message: 'Application updated successfully',
-      application
-    });
-
+    return sendSuccess(res, application, { meta: { message: 'Application updated successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while updating application');
+    return handleControllerError(res, error, 'An error occurred while updating application');
   }
 }
 
 /**
  * Delete application
  * DELETE /api/v1/applications/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteApplication(req, res) {
   try {
     const applicationId = parseInt(req.params.id, 10);
     await applicationService.deleteApplication(applicationId);
 
-    res.json({
-      success: true,
-      message: 'Application deleted successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Application deleted successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while deleting application');
+    return handleControllerError(res, error, 'An error occurred while deleting application');
   }
 }
 
@@ -229,7 +163,7 @@ async function downloadTemplate(req, res) {
     res.end();
   } catch (error) {
     logger.error('Download Application template error:', error);
-    res.status(500).json({ success: false, message: 'Gagal generate template' });
+    return sendError(res, { status: 500, message: 'Gagal generate template' });
   }
 }
 
@@ -240,28 +174,28 @@ async function downloadTemplate(req, res) {
 async function uploadApplications(req, res) {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File tidak ditemukan' });
     }
 
     const { BulkImportService } = require('../services/bulkImportService');
     const importSvc = new BulkImportService();
     const result = await importSvc.importData(req.file.buffer, 'Application');
 
-    return res.json({
-      success: true,
-      message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}`,
+    return sendSuccess(res, {
       imported: result.imported,
       updated: result.updated,
       failed: result.failed,
       errors: result.errors,
+    }, {
+      meta: { message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}` }
     });
   } catch (error) {
     logger.error('Upload Application error:', error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
+    const status = error.statusCode || 500;
+    return sendError(res, {
+      status,
       message: error.message || 'Gagal upload data Aplikasi',
-      errors: error.details || error.errors || [],
+      details: error.details || error.errors || [],
     });
   }
 }

@@ -1,23 +1,9 @@
-const { body, param, query, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const departmentService = require('../services/departmentService');
 const ExcelJS = require('exceljs');
 const logger = require('../config/logger');
-
-function handleServiceError(res, error, fallbackMessage) {
-  const statusCode = error.statusCode || 500;
-  if (statusCode >= 500) {
-    logger.error(fallbackMessage, error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: fallbackMessage
-    });
-  }
-
-  return res.status(statusCode).json({
-    error: error.name || 'Request failed',
-    message: fallbackMessage
-  });
-}
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 /**
  * Validation rules for creating a department
@@ -52,38 +38,25 @@ const updateDepartmentValidation = [
 /**
  * Create a new department
  * POST /api/v1/departments
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createDepartment(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const departmentData = req.body;
-    const department = await departmentService.createDepartment(departmentData);
+    const department = await departmentService.createDepartment(req.body);
 
-    res.status(201).json({
-      success: true,
-      message: 'Department created successfully',
-      department
-    });
-
+    return sendCreated(res, department, { meta: { message: 'Department created successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while creating department');
+    return handleControllerError(res, error, 'An error occurred while creating department');
   }
 }
 
 /**
  * Get all departments or departments by division
  * GET /api/v1/departments?divisionId=1
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getDepartments(req, res) {
   try {
@@ -97,25 +70,15 @@ async function getDepartments(req, res) {
       departments = await departmentService.getDepartments({ includeInactive });
     }
 
-    res.json({
-      success: true,
-      departments
-    });
-
+    return sendSuccess(res, departments);
   } catch (error) {
-    logger.error('Get departments controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat departments'
-    });
+    return handleControllerError(res, error, 'Gagal memuat departments');
   }
 }
 
 /**
  * Get department by ID
  * GET /api/v1/departments/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getDepartmentById(req, res) {
   try {
@@ -123,76 +86,47 @@ async function getDepartmentById(req, res) {
     const department = await departmentService.getDepartmentById(departmentId);
 
     if (!department) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Department not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Department not found' });
     }
 
-    res.json({
-      success: true,
-      department
-    });
-
+    return sendSuccess(res, department);
   } catch (error) {
-    logger.error('Get department by ID controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat department'
-    });
+    return handleControllerError(res, error, 'Gagal memuat department');
   }
 }
 
 /**
  * Update department
  * PUT /api/v1/departments/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateDepartment(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const departmentId = parseInt(req.params.id, 10);
-    const updates = req.body;
+    const department = await departmentService.updateDepartment(departmentId, req.body);
 
-    const department = await departmentService.updateDepartment(departmentId, updates);
-
-    res.json({
-      success: true,
-      message: 'Department updated successfully',
-      department
-    });
-
+    return sendSuccess(res, department, { meta: { message: 'Department updated successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while updating department');
+    return handleControllerError(res, error, 'An error occurred while updating department');
   }
 }
 
 /**
  * Delete department
  * DELETE /api/v1/departments/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteDepartment(req, res) {
   try {
     const departmentId = parseInt(req.params.id, 10);
     await departmentService.deleteDepartment(departmentId);
 
-    res.json({
-      success: true,
-      message: 'Department deleted successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Department deleted successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while deleting department');
+    return handleControllerError(res, error, 'An error occurred while deleting department');
   }
 }
 
@@ -233,7 +167,7 @@ async function downloadTemplate(req, res) {
     res.end();
   } catch (error) {
     logger.error('Download Department template error:', error);
-    res.status(500).json({ success: false, message: 'Gagal generate template' });
+    return sendError(res, { status: 500, message: 'Gagal generate template' });
   }
 }
 
@@ -244,28 +178,28 @@ async function downloadTemplate(req, res) {
 async function uploadDepartments(req, res) {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File tidak ditemukan' });
     }
 
     const { BulkImportService } = require('../services/bulkImportService');
     const importSvc = new BulkImportService();
     const result = await importSvc.importData(req.file.buffer, 'Department');
 
-    return res.json({
-      success: true,
-      message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}`,
+    return sendSuccess(res, {
       imported: result.imported,
       updated: result.updated,
       failed: result.failed,
       errors: result.errors,
+    }, {
+      meta: { message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}` }
     });
   } catch (error) {
     logger.error('Upload Department error:', error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
+    const status = error.statusCode || 500;
+    return sendError(res, {
+      status,
       message: error.message || 'Gagal upload data Department',
-      errors: error.details || error.errors || [],
+      details: error.details || error.errors || [],
     });
   }
 }
@@ -281,4 +215,3 @@ module.exports = {
   createDepartmentValidation,
   updateDepartmentValidation
 };
-

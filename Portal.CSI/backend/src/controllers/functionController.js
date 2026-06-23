@@ -2,22 +2,8 @@ const { body, param, validationResult } = require('express-validator');
 const functionService = require('../services/functionService');
 const ExcelJS = require('exceljs');
 const logger = require('../config/logger');
-
-function handleServiceError(res, error, fallbackMessage) {
-  const statusCode = error.statusCode || 500;
-  if (statusCode >= 500) {
-    logger.error(fallbackMessage, error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: fallbackMessage
-    });
-  }
-
-  return res.status(statusCode).json({
-    error: error.name || 'Request failed',
-    message: fallbackMessage
-  });
-}
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 /**
  * Validation rules for creating a function
@@ -52,38 +38,26 @@ const updateFunctionValidation = [
 /**
  * Create a new function
  * POST /api/v1/functions
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createFunction(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { name, deptId, itLeadUserId } = req.body;
     const result = await functionService.createFunction({ name, deptId, itLeadUserId: itLeadUserId || null });
 
-    res.status(201).json({
-      success: true,
-      message: 'Function created successfully',
-      function: result
-    });
-
+    return sendCreated(res, result, { meta: { message: 'Function created successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while creating function');
+    return handleControllerError(res, error, 'An error occurred while creating function');
   }
 }
 
 /**
  * Get all functions
  * GET /api/v1/functions
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getFunctions(req, res) {
   try {
@@ -92,25 +66,15 @@ async function getFunctions(req, res) {
     const itLeadUserId = (myFunctionsOnly && req.user?.role === 'ITLead') ? req.user.userId : undefined;
     const functions = await functionService.getFunctions({ includeInactive, itLeadUserId });
 
-    res.json({
-      success: true,
-      functions
-    });
-
+    return sendSuccess(res, functions);
   } catch (error) {
-    logger.error('Get functions controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat functions'
-    });
+    return handleControllerError(res, error, 'Gagal memuat functions');
   }
 }
 
 /**
  * Get function by ID
  * GET /api/v1/functions/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getFunctionById(req, res) {
   try {
@@ -118,76 +82,47 @@ async function getFunctionById(req, res) {
     const func = await functionService.getFunctionById(functionId);
 
     if (!func) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Function not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Function not found' });
     }
 
-    res.json({
-      success: true,
-      function: func
-    });
-
+    return sendSuccess(res, func);
   } catch (error) {
-    logger.error('Get function by ID controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat function'
-    });
+    return handleControllerError(res, error, 'Gagal memuat function');
   }
 }
 
 /**
  * Update function
  * PUT /api/v1/functions/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateFunction(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const functionId = parseInt(req.params.id, 10);
-    const updates = req.body;
+    const result = await functionService.updateFunction(functionId, req.body);
 
-    const result = await functionService.updateFunction(functionId, updates);
-
-    res.json({
-      success: true,
-      message: 'Function updated successfully',
-      function: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'Function updated successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while updating function');
+    return handleControllerError(res, error, 'An error occurred while updating function');
   }
 }
 
 /**
  * Delete function
  * DELETE /api/v1/functions/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteFunction(req, res) {
   try {
     const functionId = parseInt(req.params.id, 10);
     await functionService.deleteFunction(functionId);
 
-    res.json({
-      success: true,
-      message: 'Function deleted successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Function deleted successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while deleting function');
+    return handleControllerError(res, error, 'An error occurred while deleting function');
   }
 }
 
@@ -229,7 +164,7 @@ async function downloadTemplate(req, res) {
     res.end();
   } catch (error) {
     logger.error('Download Function template error:', error);
-    res.status(500).json({ success: false, message: 'Gagal generate template' });
+    return sendError(res, { status: 500, message: 'Gagal generate template' });
   }
 }
 
@@ -240,28 +175,28 @@ async function downloadTemplate(req, res) {
 async function uploadFunctions(req, res) {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File tidak ditemukan' });
     }
 
     const { BulkImportService } = require('../services/bulkImportService');
     const importSvc = new BulkImportService();
     const result = await importSvc.importData(req.file.buffer, 'Function');
 
-    return res.json({
-      success: true,
-      message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}`,
+    return sendSuccess(res, {
       imported: result.imported,
       updated: result.updated,
       failed: result.failed,
       errors: result.errors,
+    }, {
+      meta: { message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}` }
     });
   } catch (error) {
     logger.error('Upload Function error:', error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
+    const status = error.statusCode || 500;
+    return sendError(res, {
+      status,
       message: error.message || 'Gagal upload data Function',
-      errors: error.details || error.errors || [],
+      details: error.details || error.errors || [],
     });
   }
 }
