@@ -119,6 +119,15 @@ export type BestCommentWithFeedback = {
 function extractError(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const data = payload as Record<string, unknown>;
+  const err = data.error;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+    if (Array.isArray(e.details)) {
+      const first = e.details.find((d) => d && typeof d === "object" && "msg" in d) as { msg?: unknown } | undefined;
+      if (first && typeof first.msg === "string" && first.msg.trim()) return first.msg;
+    }
+  }
   if (typeof data.message === "string" && data.message.trim()) return data.message;
   if (typeof data.error === "string" && data.error.trim()) return data.error;
   return fallback;
@@ -151,7 +160,7 @@ async function getJson<T>(endpoint: string, fallbackMessage: string): Promise<Ap
     if (!response.ok || !payload?.success) {
       return { success: false, message: extractError(payload, fallbackMessage) };
     }
-    return { success: true, data: payload as unknown as T };
+    return { success: true, data: (payload?.data ?? null) as T };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -180,7 +189,7 @@ async function mutateJson(
     if (!response.ok || !payload?.success) {
       return { success: false, message: extractError(payload, fallbackMessage) };
     }
-    return { success: true, data: payload || {} };
+    return { success: true, data: (payload?.data ?? {}) as Record<string, unknown> };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -208,12 +217,12 @@ export async function fetchApprovalRespondents(input: {
     applicationId: input.applicationId,
     departmentId: input.departmentId,
   });
-  const result = await getJson<{ respondents?: ApprovalRespondent[] }>(
+  const result = await getJson<ApprovalRespondent[]>(
     `/approvals/respondents${query}`,
     "Gagal memuat responden"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.respondents || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function approveInitialResponses(input: {
@@ -244,21 +253,21 @@ export async function fetchProposedTakeouts(input: {
     departmentId: input.departmentId,
     status: input.status,
   });
-  const result = await getJson<{ takeouts?: ApprovalTakeout[] }>(
+  const result = await getJson<ApprovalTakeout[]>(
     `/approvals/proposed-takeouts${query}`,
     "Gagal memuat proposed takeout"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.takeouts || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function fetchMyFunctions(): Promise<ApiResult<Array<{ FunctionId: number; Name: string }>>> {
-  const result = await getJson<{ functions?: Array<{ FunctionId: number; Name: string }> }>(
+  const result = await getJson<Array<{ FunctionId: number; Name: string }>>(
     `/functions?myFunctionsOnly=true`,
     "Gagal memuat function"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.functions || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function fetchPendingApprovals(input?: {
@@ -269,12 +278,12 @@ export async function fetchPendingApprovals(input?: {
     surveyId: input?.surveyId,
     functionId: input?.functionId,
   });
-  const result = await getJson<{ approvals?: PendingApproval[] }>(
+  const result = await getJson<PendingApproval[]>(
     `/approvals/pending${query}`,
     "Gagal memuat pending approvals"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.approvals || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function fetchCommentsForSelection(input: {
@@ -289,12 +298,12 @@ export async function fetchCommentsForSelection(input: {
     departmentId: input.departmentId,
     applicationId: input.applicationId,
   });
-  const result = await getJson<{ comments?: ApprovalComment[] }>(
+  const result = await getJson<ApprovalComment[]>(
     `/approvals/comments${query}`,
     "Gagal memuat daftar komentar"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.comments || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function fetchBestComments(input: {
@@ -305,12 +314,12 @@ export async function fetchBestComments(input: {
     surveyId: input.surveyId,
     functionId: input.functionId,
   });
-  const result = await getJson<{ comments?: ApprovalComment[] }>(
+  const result = await getJson<ApprovalComment[]>(
     `/approvals/best-comments${query}`,
     "Gagal memuat best comments"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.comments || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function fetchBestCommentsWithFeedback(input: {
@@ -323,12 +332,12 @@ export async function fetchBestCommentsWithFeedback(input: {
     functionId: input.functionId,
     departmentId: input.departmentId,
   });
-  const result = await getJson<{ comments?: BestCommentWithFeedback[] }>(
+  const result = await getJson<BestCommentWithFeedback[]>(
     `/approvals/best-comments-with-feedback${query}`,
     "Gagal memuat best comments feedback"
   );
   if (!result.success) return result;
-  return { success: true, data: result.data.comments || [] };
+  return { success: true, data: result.data || [] };
 }
 
 export async function markBestComment(input: {
