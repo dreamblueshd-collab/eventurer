@@ -261,7 +261,7 @@ Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
 - [x] `lib/mappings.ts` — **SELESAI**
 - [x] `lib/survey-events.ts`, `lib/survey-questions.ts`, `lib/public-survey.ts`,
       `lib/survey-distribution.ts` — **SELESAI** (shared `api-utils.getErrorMessage` jadi envelope-aware)
-- [ ] `lib/approvals.ts`
+- [x] `lib/approvals.ts` — **SELESAI**
 - [ ] `lib/doorprize-api.ts`
 - [ ] `lib/reports.ts`, `lib/audit.ts`, `lib/email-blast.ts`, `lib/operations.ts`
 - Untuk tiap pemanggilan:
