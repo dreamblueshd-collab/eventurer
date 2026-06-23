@@ -1,6 +1,8 @@
 const { body, param, validationResult } = require('express-validator');
 const surveyService = require('../services/surveyService');
 const logger = require('../config/logger');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 /**
  * Validation rules for adding a question
@@ -94,34 +96,15 @@ async function addQuestion(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const surveyId = req.params.surveyId || req.body.surveyId;
-    const questionData = req.body;
-    const question = await surveyService.addQuestion(surveyId, questionData);
+    const question = await surveyService.addQuestion(surveyId, req.body);
 
-    res.status(201).json({
-      success: true,
-      message: 'Question added successfully',
-      question
-    });
+    return sendCreated(res, question, { meta: { message: 'Question added successfully' } });
   } catch (error) {
-    if (error.name === 'ValidationError' || error.name === 'NotFoundError') {
-      return res.status(400).json({
-        error: 'Question creation failed',
-        message: error.message
-      });
-    }
-
-    logger.error('Add question controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while adding question'
-    });
+    return handleControllerError(res, error, 'An error occurred while adding question');
   }
 }
 
@@ -134,16 +117,9 @@ async function getQuestionsBySurvey(req, res) {
     const surveyId = req.params.surveyId || req.body.surveyId;
     const questions = await surveyService.getQuestionsBySurvey(surveyId);
 
-    return res.json({
-      success: true,
-      questions
-    });
+    return sendSuccess(res, questions);
   } catch (error) {
-    logger.error('Get questions by survey controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching questions'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching questions');
   }
 }
 
@@ -155,34 +131,14 @@ async function updateQuestion(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const questionId = req.params.id;
-    const updates = req.body;
-    const question = await surveyService.updateQuestion(questionId, updates);
+    const question = await surveyService.updateQuestion(req.params.id, req.body);
 
-    return res.json({
-      success: true,
-      message: 'Question updated successfully',
-      question
-    });
+    return sendSuccess(res, question, { meta: { message: 'Question updated successfully' } });
   } catch (error) {
-    if (error.name === 'ValidationError' || error.name === 'NotFoundError') {
-      return res.status(400).json({
-        error: 'Question update failed',
-        message: error.message
-      });
-    }
-
-    logger.error('Update question controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while updating question'
-    });
+    return handleControllerError(res, error, 'An error occurred while updating question');
   }
 }
 
@@ -192,33 +148,15 @@ async function updateQuestion(req, res) {
  */
 async function deleteQuestion(req, res) {
   try {
-    const questionId = req.params.id;
-    const deleted = await surveyService.deleteQuestion(questionId);
+    const deleted = await surveyService.deleteQuestion(req.params.id);
 
     if (!deleted) {
-      return res.status(400).json({
-        error: 'Question deletion failed',
-        message: 'Question was not deleted'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Question was not deleted' });
     }
 
-    return res.json({
-      success: true,
-      message: 'Question deleted successfully'
-    });
+    return sendSuccess(res, null, { meta: { message: 'Question deleted successfully' } });
   } catch (error) {
-    if (error.name === 'ValidationError' || error.name === 'NotFoundError') {
-      return res.status(400).json({
-        error: 'Question deletion failed',
-        message: error.message
-      });
-    }
-
-    logger.error('Delete question controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while deleting question'
-    });
+    return handleControllerError(res, error, 'An error occurred while deleting question');
   }
 }
 
@@ -230,33 +168,15 @@ async function reorderQuestions(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { surveyId, questionOrders } = req.body;
     const questions = await surveyService.reorderQuestions(surveyId, questionOrders);
 
-    return res.json({
-      success: true,
-      message: 'Questions reordered successfully',
-      questions
-    });
+    return sendSuccess(res, questions, { meta: { message: 'Questions reordered successfully' } });
   } catch (error) {
-    if (error.name === 'ValidationError' || error.name === 'NotFoundError') {
-      return res.status(400).json({
-        error: 'Question reordering failed',
-        message: error.message
-      });
-    }
-
-    logger.error('Reorder questions controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while reordering questions'
-    });
+    return handleControllerError(res, error, 'An error occurred while reordering questions');
   }
 }
 
@@ -269,40 +189,19 @@ async function uploadQuestionImage(req, res) {
     const questionId = req.params.id;
 
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Image file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Image file is required' });
     }
 
     const question = await surveyService.uploadQuestionImage(questionId, req.file);
     const imageUrl = question?.ImageUrl || null;
 
     if (!imageUrl) {
-      return res.status(500).json({
-        error: 'Upload failed',
-        message: 'Image uploaded but URL could not be retrieved'
-      });
+      return sendError(res, { status: 500, message: 'Image uploaded but URL could not be retrieved' });
     }
 
-    return res.json({
-      success: true,
-      message: 'Question image uploaded successfully',
-      imageUrl
-    });
+    return sendSuccess(res, { imageUrl }, { meta: { message: 'Question image uploaded successfully' } });
   } catch (error) {
-    if (error.name === 'ValidationError' || error.name === 'NotFoundError') {
-      return res.status(400).json({
-        error: 'Image upload failed',
-        message: error.message
-      });
-    }
-
-    logger.error('Upload question image controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while uploading image'
-    });
+    return handleControllerError(res, error, 'An error occurred while uploading image');
   }
 }
 
@@ -316,32 +215,14 @@ async function uploadOptionImage(req, res) {
     const optionIndex = parseInt(req.params.optionIndex, 10);
 
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Image file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Image file is required' });
     }
 
     const imageUrl = await surveyService.uploadOptionImage(questionId, optionIndex, req.file);
 
-    return res.json({
-      success: true,
-      message: 'Option image uploaded successfully',
-      imageUrl
-    });
+    return sendSuccess(res, { imageUrl }, { meta: { message: 'Option image uploaded successfully' } });
   } catch (error) {
-    if (error.name === 'ValidationError' || error.name === 'NotFoundError') {
-      return res.status(400).json({
-        error: 'Image upload failed',
-        message: error.message
-      });
-    }
-
-    logger.error('Upload option image controller error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while uploading option image'
-    });
+    return handleControllerError(res, error, 'An error occurred while uploading option image');
   }
 }
 
