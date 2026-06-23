@@ -2,6 +2,8 @@ const { body, param, query, validationResult } = require('express-validator');
 const userService = require('../services/userService');
 const logger = require('../config/logger');
 const ExcelJS = require('exceljs');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 const userIdentifierValidation = param('id')
   .trim()
@@ -100,53 +102,30 @@ const setPasswordValidation = [
 /**
  * Create a new user
  * POST /api/v1/users
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createUser(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const userData = req.body;
-    const result = await userService.createUser(userData);
+    const result = await userService.createUser(req.body);
 
-    res.status(201).json({
-      success: true,
-      message: 'User created successfully',
-      user: result
-    });
-
+    return sendCreated(res, result, { meta: { message: 'User created successfully' } });
   } catch (error) {
-    logger.error('Create user controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while creating user'
-    });
+    return handleControllerError(res, error, 'An error occurred while creating user');
   }
 }
 
 /**
  * Get IT Lead users for public dropdown (requires auth only, no special permission)
  * GET /api/v1/public/users/it-leads
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getPublicITLeads(req, res) {
   try {
     const { includeInactive } = req.query;
-    
+
     const filter = {
       role: 'ITLead',
       includeInactive: includeInactive === 'true'
@@ -154,36 +133,26 @@ async function getPublicITLeads(req, res) {
 
     const users = await userService.getUsers(filter);
 
-    res.json({
-      success: true,
-      users: users.map(user => ({
-        UserId: user.UserId,
-        DisplayName: user.DisplayName,
-        Username: user.Username,
-        Email: user.Email,
-        IsActive: user.IsActive
-      }))
-    });
-
+    return sendSuccess(res, users.map(user => ({
+      UserId: user.UserId,
+      DisplayName: user.DisplayName,
+      Username: user.Username,
+      Email: user.Email,
+      IsActive: user.IsActive
+    })));
   } catch (error) {
-    logger.error('Get public IT Leads controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching IT Lead users'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching IT Lead users');
   }
 }
 
 /**
  * Get all users
  * GET /api/v1/users
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getUsers(req, res) {
   try {
     const { role, isActive, search, includeInactive } = req.query;
-    
+
     const filter = {};
     if (role) filter.role = role;
     if (isActive !== undefined) filter.isActive = isActive === 'true';
@@ -192,212 +161,100 @@ async function getUsers(req, res) {
 
     const users = await userService.getUsers(filter);
 
-    res.json({
-      success: true,
-      users
-    });
-
+    return sendSuccess(res, users);
   } catch (error) {
-    logger.error('Get users controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching users'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching users');
   }
 }
 
 /**
  * Get user by ID
  * GET /api/v1/users/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getUserById(req, res) {
   try {
-    const userId = req.params.id;
-    const user = await userService.getUserById(userId);
+    const user = await userService.getUserById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'User not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'User not found' });
     }
 
-    res.json({
-      success: true,
-      user
-    });
-
+    return sendSuccess(res, user);
   } catch (error) {
-    logger.error('Get user by ID controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching user'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching user');
   }
 }
 
 /**
  * Update user
  * PUT /api/v1/users/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateUser(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const userId = req.params.id;
-    const updates = req.body;
+    const result = await userService.updateUser(req.params.id, req.body);
 
-    const result = await userService.updateUser(userId, updates);
-
-    res.json({
-      success: true,
-      message: 'User updated successfully',
-      user: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'User updated successfully' } });
   } catch (error) {
-    logger.error('Update user controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while updating user'
-    });
+    return handleControllerError(res, error, 'An error occurred while updating user');
   }
 }
 
 /**
  * Deactivate user (soft delete)
  * DELETE /api/v1/users/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deactivateUser(req, res) {
   try {
-    const userId = req.params.id;
-    const result = await userService.deactivateUser(userId);
+    const result = await userService.deactivateUser(req.params.id);
 
-    res.json({
-      success: true,
-      message: 'User deactivated successfully',
-      user: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'User deactivated successfully' } });
   } catch (error) {
-    logger.error('Deactivate user controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while deactivating user'
-    });
+    return handleControllerError(res, error, 'An error occurred while deactivating user');
   }
 }
 
 /**
  * Toggle user LDAP authentication
  * PATCH /api/v1/users/:id/ldap
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function toggleUserLDAP(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const userId = req.params.id;
     const { useLDAP } = req.body;
+    const result = await userService.toggleUserLDAP(req.params.id, useLDAP);
 
-    const result = await userService.toggleUserLDAP(userId, useLDAP);
-
-    res.json({
-      success: true,
-      message: 'LDAP setting updated successfully',
-      user: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'LDAP setting updated successfully' } });
   } catch (error) {
-    logger.error('Toggle LDAP controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while toggling LDAP'
-    });
+    return handleControllerError(res, error, 'An error occurred while toggling LDAP');
   }
 }
 
 /**
  * Set user password (for non-LDAP users)
  * PATCH /api/v1/users/:id/password
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function setUserPassword(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const userId = req.params.id;
     const { password } = req.body;
+    await userService.setUserPassword(req.params.id, password);
 
-    await userService.setUserPassword(userId, password);
-
-    res.json({
-      success: true,
-      message: 'Password updated successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Password updated successfully' } });
   } catch (error) {
-    logger.error('Set password controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while setting password'
-    });
+    return handleControllerError(res, error, 'An error occurred while setting password');
   }
 }
 
@@ -594,16 +451,12 @@ async function downloadUserTemplate(req, res) {
     res.send(Buffer.from(buffer));
   } catch (error) {
     logger.error('Download user template controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while generating template'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while generating template' });
   }
 }
 
 async function downloadUserList(req, res) {
   try {
-    const userService = require('../services/userService');
     const users = await userService.getUsers({ includeInactive: true });
 
     const workbook = new ExcelJS.Workbook();
@@ -645,49 +498,40 @@ async function downloadUserList(req, res) {
     res.end();
   } catch (error) {
     logger.error('Download user list controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while generating user list'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while generating user list' });
   }
 }
 
 async function uploadUserFile(req, res) {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'File is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File is required' });
     }
 
     const { BulkImportService } = require('../services/bulkImportService');
     const service = new BulkImportService();
     const result = await service.importData(req.file.buffer, 'users');
 
-    res.json({
-      success: result.success || result.imported > 0,
-      message: `Import completed. Imported: ${result.imported}, Failed: ${result.failed}`,
+    return sendSuccess(res, {
       imported: result.imported,
       failed: result.failed,
       errors: result.errors
+    }, {
+      meta: { message: `Import completed. Imported: ${result.imported}, Failed: ${result.failed}` }
     });
   } catch (error) {
     logger.error('Upload user file controller error:', error);
 
     if (error.name === 'ValidationError') {
-      return res.status(error.statusCode || 422).json({
-        success: false,
-        error: 'Template tidak sesuai',
+      return sendError(res, {
+        status: error.statusCode || 422,
+        code: 'VALIDATION_ERROR',
         message: error.message || 'Format file tidak sesuai dengan template yang disediakan. Silakan download template terbaru dan coba lagi.',
-        details: error.details || null
+        details: error.details || undefined
       });
     }
 
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message || 'An error occurred while uploading file'
-    });
+    return handleControllerError(res, error, 'An error occurred while uploading file');
   }
 }
 
@@ -708,4 +552,3 @@ module.exports = {
   toggleLDAPValidation,
   setPasswordValidation
 };
-

@@ -1,33 +1,29 @@
-const { body, param, query, validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const mappingService = require('../services/mappingService');
 const { BulkImportService } = require('../services/bulkImportService');
 const logger = require('../config/logger');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { sendValidationErrors } = require('../utils/controllerError');
 
+/**
+ * Map a mapping-service error to the standard error envelope.
+ * Mapping services throw plain Errors with descriptive messages, so we keep a
+ * small heuristic here while still emitting the standard { success:false, error } shape.
+ */
 function handleMappingError(res, error, fallbackMessage) {
   const message = error?.message || fallbackMessage;
   const statusCode = error?.statusCode;
 
   if (statusCode && statusCode < 500) {
-    return res.status(statusCode).json({
-      error: error.name || 'Request failed',
-      message
-    });
+    return sendError(res, { status: statusCode, message });
   }
 
-  if (
-    /required|already exists|not found|must be provided|invalid|inactive/i.test(message)
-  ) {
-    return res.status(400).json({
-      error: error?.name || 'Validation failed',
-      message
-    });
+  if (/required|already exists|not found|must be provided|invalid|inactive/i.test(message)) {
+    return sendError(res, { status: 400, code: 'BAD_REQUEST', message });
   }
 
   logger.error(fallbackMessage, error);
-  return res.status(500).json({
-    error: 'Internal server error',
-    message: fallbackMessage
-  });
+  return sendError(res, { status: 500, message: fallbackMessage });
 }
 
 /**
@@ -69,53 +65,28 @@ const createAppDeptMappingValidation = [
 /**
  * Create Function-Application mapping (single or multiple)
  * POST /api/v1/mappings/function-application
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createFunctionAppMapping(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { functionId, applicationId, applicationIds } = req.body;
     const createdBy = req.user?.userId;
 
-    let mapping;
-    let mappings;
+    let data;
     if (applicationIds && applicationIds.length > 0) {
-      // Multiple mappings
-      const result = await mappingService.createMultipleFunctionAppMappings(
-        functionId,
-        applicationIds,
-        createdBy
-      );
-      mappings = result.created;
+      const result = await mappingService.createMultipleFunctionAppMappings(functionId, applicationIds, createdBy);
+      data = result.created;
     } else if (applicationId) {
-      // Single mapping
-      mapping = await mappingService.createFunctionAppMapping(
-        functionId,
-        applicationId,
-        createdBy
-      );
+      data = await mappingService.createFunctionAppMapping(functionId, applicationId, createdBy);
     } else {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Either applicationId or applicationIds must be provided'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Either applicationId or applicationIds must be provided' });
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Function-Application mapping created successfully',
-      mapping,
-      mappings
-    });
-
+    return sendCreated(res, data, { meta: { message: 'Function-Application mapping created successfully' } });
   } catch (error) {
     return handleMappingError(res, error, 'An error occurred while creating mapping');
   }
@@ -124,100 +95,58 @@ async function createFunctionAppMapping(req, res) {
 /**
  * Get all Function-Application mappings
  * GET /api/v1/mappings/function-application
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getFunctionAppMappings(req, res) {
   try {
     const { detailed } = req.query;
 
-    let mappings;
-    if (detailed === 'true') {
-      mappings = await mappingService.getFunctionAppMappingsWithDetails();
-    } else {
-      mappings = await mappingService.getFunctionAppMappings();
-    }
+    const mappings = detailed === 'true'
+      ? await mappingService.getFunctionAppMappingsWithDetails()
+      : await mappingService.getFunctionAppMappings();
 
-    res.json({
-      success: true,
-      mappings
-    });
-
+    return sendSuccess(res, mappings);
   } catch (error) {
     logger.error('Get Function-Application mappings controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching mappings'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while fetching mappings' });
   }
 }
 
 /**
  * Get applications by function
  * GET /api/v1/mappings/function-application/function/:functionId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getApplicationsByFunction(req, res) {
   try {
-    const functionId = req.params.functionId;
-    const applications = await mappingService.getApplicationsByFunction(functionId);
-
-    res.json({
-      success: true,
-      applications
-    });
-
+    const applications = await mappingService.getApplicationsByFunction(req.params.functionId);
+    return sendSuccess(res, applications);
   } catch (error) {
     logger.error('Get applications by function controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching applications'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while fetching applications' });
   }
 }
 
 /**
  * Get functions by application
  * GET /api/v1/mappings/function-application/application/:applicationId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getFunctionsByApplication(req, res) {
   try {
-    const applicationId = req.params.applicationId;
-    const functions = await mappingService.getFunctionsByApplication(applicationId);
-
-    res.json({
-      success: true,
-      functions
-    });
-
+    const functions = await mappingService.getFunctionsByApplication(req.params.applicationId);
+    return sendSuccess(res, functions);
   } catch (error) {
     logger.error('Get functions by application controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching functions'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while fetching functions' });
   }
 }
 
 /**
  * Delete Function-Application mapping
  * DELETE /api/v1/mappings/function-application/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteFunctionAppMapping(req, res) {
   try {
-    const mappingId = req.params.id;
-    await mappingService.deleteFunctionAppMapping(mappingId);
-
-    res.json({
-      success: true,
-      message: 'Function-Application mapping deleted successfully'
-    });
-
+    await mappingService.deleteFunctionAppMapping(req.params.id);
+    return sendSuccess(res, null, { meta: { message: 'Function-Application mapping deleted successfully' } });
   } catch (error) {
     return handleMappingError(res, error, 'An error occurred while deleting mapping');
   }
@@ -226,8 +155,6 @@ async function deleteFunctionAppMapping(req, res) {
 /**
  * Export Function-Application mappings to CSV
  * GET /api/v1/mappings/function-application/export/csv
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function exportFunctionAppMappingsToCSV(req, res) {
   try {
@@ -236,66 +163,37 @@ async function exportFunctionAppMappingsToCSV(req, res) {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=function-application-mappings.csv');
     res.send(csv);
-
   } catch (error) {
     logger.error('Export Function-Application mappings controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while exporting mappings'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while exporting mappings' });
   }
 }
 
 /**
  * Create Application-Department mapping (single or multiple)
  * POST /api/v1/mappings/application-department
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createAppDeptMapping(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { departmentId, applicationId, applicationIds } = req.body;
     const createdBy = req.user?.userId;
 
-    let mapping;
-    let mappings;
+    let data;
     if (applicationIds && applicationIds.length > 0) {
-      // Multiple mappings
-      const result = await mappingService.createMultipleAppDeptMappings(
-        departmentId,
-        applicationIds,
-        createdBy
-      );
-      mappings = result.created;
+      const result = await mappingService.createMultipleAppDeptMappings(departmentId, applicationIds, createdBy);
+      data = result.created;
     } else if (applicationId) {
-      // Single mapping
-      mapping = await mappingService.createAppDeptMapping(
-        applicationId,
-        departmentId,
-        createdBy
-      );
+      data = await mappingService.createAppDeptMapping(applicationId, departmentId, createdBy);
     } else {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Either applicationId or applicationIds must be provided'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Either applicationId or applicationIds must be provided' });
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Application-Department mapping created successfully',
-      mapping,
-      mappings
-    });
-
+    return sendCreated(res, data, { meta: { message: 'Application-Department mapping created successfully' } });
   } catch (error) {
     return handleMappingError(res, error, 'An error occurred while creating mapping');
   }
@@ -304,100 +202,58 @@ async function createAppDeptMapping(req, res) {
 /**
  * Get all Application-Department mappings
  * GET /api/v1/mappings/application-department
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getAppDeptMappings(req, res) {
   try {
     const { hierarchical } = req.query;
 
-    let mappings;
-    if (hierarchical === 'true') {
-      mappings = await mappingService.getAppDeptMappingsHierarchical();
-    } else {
-      mappings = await mappingService.getAppDeptMappings();
-    }
+    const mappings = hierarchical === 'true'
+      ? await mappingService.getAppDeptMappingsHierarchical()
+      : await mappingService.getAppDeptMappings();
 
-    res.json({
-      success: true,
-      mappings
-    });
-
+    return sendSuccess(res, mappings);
   } catch (error) {
     logger.error('Get Application-Department mappings controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching mappings'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while fetching mappings' });
   }
 }
 
 /**
  * Get applications by department
  * GET /api/v1/mappings/application-department/department/:departmentId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getApplicationsByDepartment(req, res) {
   try {
-    const departmentId = req.params.departmentId;
-    const applications = await mappingService.getApplicationsByDepartment(departmentId);
-
-    res.json({
-      success: true,
-      applications
-    });
-
+    const applications = await mappingService.getApplicationsByDepartment(req.params.departmentId);
+    return sendSuccess(res, applications);
   } catch (error) {
     logger.error('Get applications by department controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching applications'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while fetching applications' });
   }
 }
 
 /**
  * Get departments by application
  * GET /api/v1/mappings/application-department/application/:applicationId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getDepartmentsByApplication(req, res) {
   try {
-    const applicationId = req.params.applicationId;
-    const departments = await mappingService.getDepartmentsByApplication(applicationId);
-
-    res.json({
-      success: true,
-      departments
-    });
-
+    const departments = await mappingService.getDepartmentsByApplication(req.params.applicationId);
+    return sendSuccess(res, departments);
   } catch (error) {
     logger.error('Get departments by application controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching departments'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while fetching departments' });
   }
 }
 
 /**
  * Delete Application-Department mapping
  * DELETE /api/v1/mappings/application-department/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteAppDeptMapping(req, res) {
   try {
-    const mappingId = req.params.id;
-    await mappingService.deleteAppDeptMapping(mappingId);
-
-    res.json({
-      success: true,
-      message: 'Application-Department mapping deleted successfully'
-    });
-
+    await mappingService.deleteAppDeptMapping(req.params.id);
+    return sendSuccess(res, null, { meta: { message: 'Application-Department mapping deleted successfully' } });
   } catch (error) {
     return handleMappingError(res, error, 'An error occurred while deleting mapping');
   }
@@ -406,8 +262,6 @@ async function deleteAppDeptMapping(req, res) {
 /**
  * Export Application-Department mappings to CSV
  * GET /api/v1/mappings/application-department/export/csv
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function exportAppDeptMappingsToCSV(req, res) {
   try {
@@ -416,13 +270,9 @@ async function exportAppDeptMappingsToCSV(req, res) {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=application-department-mappings.csv');
     res.send(csv);
-
   } catch (error) {
     logger.error('Export Application-Department mappings controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while exporting mappings'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while exporting mappings' });
   }
 }
 
@@ -479,7 +329,7 @@ async function downloadFunctionAppTemplate(req, res) {
     res.send(Buffer.from(buffer));
   } catch (error) {
     logger.error('Download function-app template error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal mengunduh template' });
+    return sendError(res, { status: 500, message: 'Gagal mengunduh template' });
   }
 }
 
@@ -542,64 +392,49 @@ async function downloadAppDeptTemplate(req, res) {
     res.send(Buffer.from(buffer));
   } catch (error) {
     logger.error('Download app-dept template error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal mengunduh template' });
+    return sendError(res, { status: 500, message: 'Gagal mengunduh template' });
   }
 }
 
 /**
  * Bulk import mappings from file
  * POST /api/v1/mappings/bulk-import
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function bulkImportMappings(req, res) {
   try {
     const { mappingType } = req.body;
-    
+
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'File is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File is required' });
     }
 
     if (!mappingType || !['function-application', 'application-department'].includes(mappingType)) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Invalid mapping type. Must be "function-application" or "application-department"'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Invalid mapping type. Must be "function-application" or "application-department"' });
     }
 
     const importSvc = new BulkImportService();
-    const result = await importSvc.importMappings(
-      req.file.buffer,
-      mappingType,
-      req.user?.userId
-    );
+    const result = await importSvc.importMappings(req.file.buffer, mappingType, req.user?.userId);
 
     if (!result.success) {
-      return res.status(result.statusCode || 400).json({
-        error: 'Bulk import failed',
+      return sendError(res, {
+        status: result.statusCode || 400,
+        code: 'BAD_REQUEST',
         message: result.errorMessage,
-        errors: result.errors
+        details: result.errors
       });
     }
 
-    res.json({
-      success: true,
-      message: 'Bulk import completed successfully',
+    return sendSuccess(res, {
       imported: result.imported,
       skipped: result.skipped,
       failed: result.failed,
       errors: result.errors
+    }, {
+      meta: { message: 'Bulk import completed successfully' }
     });
-
   } catch (error) {
     logger.error('Bulk import mappings controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred during bulk import'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred during bulk import' });
   }
 }
 

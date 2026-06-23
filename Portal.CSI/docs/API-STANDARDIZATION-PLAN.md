@@ -153,8 +153,9 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
    - [ ] `authController` (hati-hati: cookie + bentuk `user`)
    - [x] `applicationController`, `businessUnitController`, `departmentController`,
          `divisionController`, `functionController` (master data) — **SELESAI**
-   - [ ] `userController`
-   - [ ] `mappingController`, `integrationController`
+   - [x] `userController` — **SELESAI**
+   - [x] `mappingController`, `integrationController` — `mappingController` **SELESAI**;
+         `integrationController` menyusul
    - [ ] `surveyController`, `questionController`, `responseController`
    - [ ] `approvalController`
    - [ ] `doorprizeController`
