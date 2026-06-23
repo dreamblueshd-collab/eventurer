@@ -71,7 +71,7 @@ export async function generateEventLink(
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; message?: string; error?: string; surveyLink?: string; shortenedLink?: string | null }
+      | { success?: boolean; message?: string; error?: unknown; data?: { surveyLink?: string; shortenedLink?: string | null } }
       | null;
 
     if (!response.ok || !payload?.success) {
@@ -80,8 +80,8 @@ export async function generateEventLink(
 
     return {
       success: true,
-      surveyLink: payload.surveyLink,
-      shortenedLink: payload.shortenedLink ?? null,
+      surveyLink: payload.data?.surveyLink,
+      shortenedLink: payload.data?.shortenedLink ?? null,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };

@@ -62,6 +62,11 @@ type JsonRecord = Record<string, unknown>;
 function getErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const data = payload as JsonRecord;
+  const err = data.error;
+  if (err && typeof err === "object") {
+    const e = err as JsonRecord;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+  }
   if (typeof data.message === "string" && data.message.trim()) return data.message;
   if (typeof data.error === "string" && data.error.trim()) return data.error;
   return fallback;
@@ -81,10 +86,10 @@ export async function fetchPublicSurveyForm(
       method: "GET",
       cache: "no-store",
     });
-    if (!result.ok || result.payload?.success !== true || !result.payload.form) {
+    if (!result.ok || result.payload?.success !== true || !result.payload.data) {
       return { success: false, message: getErrorMessage(result.payload, "Survey tidak ditemukan atau sudah tidak aktif") };
     }
-    return { success: true, form: result.payload.form as PublicSurveyForm };
+    return { success: true, form: result.payload.data as PublicSurveyForm };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -106,7 +111,7 @@ export async function fetchPublicApplications(
     if (!result.ok || result.payload?.success !== true) {
       return { success: false, applications: [], message: getErrorMessage(result.payload, "Gagal memuat aplikasi") };
     }
-    const raw = Array.isArray(result.payload.applications) ? result.payload.applications : [];
+    const raw = Array.isArray(result.payload.data) ? result.payload.data : [];
     return {
       success: true,
       applications: raw
@@ -142,24 +147,24 @@ export async function fetchPublicMasterData(): Promise<{
     return {
       success: true,
       data: {
-        businessUnits: (Array.isArray(bu.payload?.businessUnits) ? bu.payload.businessUnits : [])
+        businessUnits: (Array.isArray(bu.payload?.data) ? bu.payload.data : [])
           .map((item) => ({ id: String((item as JsonRecord).BusinessUnitId || ""), name: String((item as JsonRecord).Name || "").trim() }))
           .filter((item) => item.id && item.name),
-        divisions: (Array.isArray(division.payload?.divisions) ? division.payload.divisions : [])
+        divisions: (Array.isArray(division.payload?.data) ? division.payload.data : [])
           .map((item) => ({
             id: String((item as JsonRecord).DivisionId || ""),
             parentId: String((item as JsonRecord).BusinessUnitId || ""),
             name: String((item as JsonRecord).Name || "").trim(),
           }))
           .filter((item) => item.id && item.name),
-        departments: (Array.isArray(department.payload?.departments) ? department.payload.departments : [])
+        departments: (Array.isArray(department.payload?.data) ? department.payload.data : [])
           .map((item) => ({
             id: String((item as JsonRecord).DepartmentId || ""),
             parentId: String((item as JsonRecord).DivisionId || ""),
             name: String((item as JsonRecord).Name || "").trim(),
           }))
           .filter((item) => item.id && item.name),
-        functions: (Array.isArray(fn.payload?.functions) ? fn.payload.functions : [])
+        functions: (Array.isArray(fn.payload?.data) ? fn.payload.data : [])
           .map((item) => ({ id: String((item as JsonRecord).FunctionId || ""), name: String((item as JsonRecord).Name || "").trim() }))
           .filter((item) => item.id && item.name),
       },
@@ -187,10 +192,16 @@ export async function checkDuplicatePublicResponse(input: {
     if (!result.ok || result.payload?.success !== true) {
       return { success: false, isDuplicate: false, message: getErrorMessage(result.payload, "Gagal memeriksa duplikasi response") };
     }
+    const dupData = (result.payload.data && typeof result.payload.data === "object")
+      ? (result.payload.data as JsonRecord)
+      : null;
+    const dupMeta = (result.payload.meta && typeof result.payload.meta === "object")
+      ? (result.payload.meta as JsonRecord)
+      : null;
     return {
       success: true,
-      isDuplicate: result.payload.isDuplicate === true,
-      message: typeof result.payload.message === "string" ? result.payload.message : undefined,
+      isDuplicate: dupData?.isDuplicate === true,
+      message: typeof dupMeta?.message === "string" ? dupMeta.message : undefined,
     };
   } catch {
     return { success: false, isDuplicate: false, message: "Gagal terhubung ke server" };
@@ -227,9 +238,13 @@ export async function submitPublicSurveyResponse(input: {
     if (!result.ok || result.payload?.success !== true) {
       return { success: false, message: getErrorMessage(result.payload, "Gagal mengirim response survey") };
     }
+    const submitData = (result.payload.data && typeof result.payload.data === "object")
+      ? (result.payload.data as JsonRecord)
+      : null;
+    const responseIds = Array.isArray(submitData?.responseIds) ? submitData.responseIds : [];
     return {
       success: true,
-      responseId: typeof result.payload.responseId === "string" ? result.payload.responseId : undefined,
+      responseId: responseIds.length > 0 ? String(responseIds[0]) : undefined,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
