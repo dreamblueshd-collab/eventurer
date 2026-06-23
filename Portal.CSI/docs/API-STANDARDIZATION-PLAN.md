@@ -258,7 +258,7 @@ Fase 1 (backend) selesai dan diselaraskan. Ringkasan hasil review:
 Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
 - [x] `lib/auth.ts` (login/validate -> `data`, forgot/reset -> `meta.message`), `fetch-with-auth.ts` — **SELESAI**
 - [x] `lib/master-data.ts`, `lib/org-hierarchy.ts`, `lib/users.ts` — **SELESAI**
-- [ ] `lib/mappings.ts`
+- [x] `lib/mappings.ts` — **SELESAI**
 - [ ] `lib/survey-events.ts`, `lib/survey-questions.ts`, `lib/public-survey.ts`,
       `lib/survey-distribution.ts`
 - [ ] `lib/approvals.ts`

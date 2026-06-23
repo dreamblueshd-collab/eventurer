@@ -1,6 +1,7 @@
 "use client";
 
 import { getAccessToken, redirectToLogin } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/api-client";
 
 const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
 
@@ -50,11 +51,7 @@ export type DepartmentApplicationMappingHierarchy = {
 };
 
 function getErrorMessage(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const data = payload as Record<string, unknown>;
-  if (typeof data.message === "string") return data.message;
-  if (typeof data.error === "string") return data.error;
-  return fallback;
+  return getApiErrorMessage(payload, fallback);
 }
 
 async function fetchMappedApplications(
@@ -73,7 +70,7 @@ async function fetchMappedApplications(
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; applications?: MappedApplicationOption[]; message?: string; error?: string }
+      | { success?: boolean; data?: MappedApplicationOption[]; message?: string; error?: unknown }
       | null;
 
     if (response.status === 401) {
@@ -90,7 +87,7 @@ async function fetchMappedApplications(
 
     return {
       success: true,
-      applications: Array.isArray(payload.applications) ? payload.applications : [],
+      applications: Array.isArray(payload.data) ? payload.data : [],
     };
   } catch {
     return { success: false, applications: [], message: "Gagal terhubung ke server" };
@@ -153,7 +150,7 @@ export async function fetchFunctionApplicationMappingsDetailed(): Promise<{
     "/mappings/function-app/details",
     { method: "GET" },
     "Gagal memuat mapping function-aplikasi",
-    (payload) => (Array.isArray(payload?.mappings) ? (payload?.mappings as FunctionApplicationMappingItem[]) : []),
+    (payload) => (Array.isArray(payload?.data) ? (payload?.data as FunctionApplicationMappingItem[]) : []),
   );
   return result.success
     ? { success: true, mappings: result.data || [] }
@@ -169,7 +166,7 @@ export async function fetchDepartmentApplicationMappingsHierarchical(): Promise<
     "/mappings/app-dept/hierarchical",
     { method: "GET" },
     "Gagal memuat mapping dept-aplikasi",
-    (payload) => (Array.isArray(payload?.mappings) ? (payload?.mappings as DepartmentApplicationMappingHierarchy[]) : []),
+    (payload) => (Array.isArray(payload?.data) ? (payload?.data as DepartmentApplicationMappingHierarchy[]) : []),
   );
   return result.success
     ? { success: true, mappings: result.data || [] }
@@ -323,24 +320,28 @@ export async function bulkImportMappings(
     }
 
     if (!response.ok) {
-      const errors = Array.isArray(payload?.errors)
-        ? (payload.errors as Array<{ row: number; data: Record<string, unknown>; errors: string[] }>)
+      const errObj = (payload?.error && typeof payload.error === "object") ? (payload.error as Record<string, unknown>) : null;
+      const errors = errObj && Array.isArray(errObj.details)
+        ? (errObj.details as Array<{ row: number; data: Record<string, unknown>; errors: string[] }>)
         : undefined;
       return {
         success: false,
-        message: typeof payload?.message === "string" ? payload.message : "Gagal mengimpor data",
+        message: getErrorMessage(payload, "Gagal mengimpor data"),
         errors,
       };
     }
 
+    const importData = (payload?.data && typeof payload.data === "object")
+      ? (payload.data as Record<string, unknown>)
+      : {};
     return {
       success: true,
-      imported: typeof payload?.imported === "number" ? payload.imported : 0,
-      updated: typeof payload?.updated === "number" ? payload.updated : 0,
-      skipped: typeof payload?.skipped === "number" ? payload.skipped : 0,
-      failed: typeof payload?.failed === "number" ? payload.failed : 0,
-      errors: Array.isArray(payload?.errors)
-        ? (payload.errors as Array<{ row: number; data: Record<string, unknown>; errors: string[] }>)
+      imported: typeof importData.imported === "number" ? importData.imported : 0,
+      updated: typeof importData.updated === "number" ? importData.updated : 0,
+      skipped: typeof importData.skipped === "number" ? importData.skipped : 0,
+      failed: typeof importData.failed === "number" ? importData.failed : 0,
+      errors: Array.isArray(importData.errors)
+        ? (importData.errors as Array<{ row: number; data: Record<string, unknown>; errors: string[] }>)
         : [],
     };
   } catch {
