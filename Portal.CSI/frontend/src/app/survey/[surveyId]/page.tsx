@@ -12,8 +12,8 @@ async function fetchSurveyMeta(surveyId: string) {
     );
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data.success || !data.form) return null;
-    return data.form as {
+    if (!data.success || !data.data) return null;
+    return data.data as {
       title?: string;
       description?: string;
       configuration?: {

@@ -17,9 +17,10 @@ async function fetchMetaByCode(code: string) {
     if (!resolveRes.ok) return null;
 
     const resolved = await resolveRes.json();
-    if (!resolved?.success || (!resolved?.slug && !resolved?.surveyId)) return null;
+    const resolvedLink = resolved?.data || {};
+    if (!resolved?.success || (!resolvedLink.slug && !resolvedLink.surveyId)) return null;
 
-    const targetId = String(resolved.slug || resolved.surveyId);
+    const targetId = String(resolvedLink.slug || resolvedLink.surveyId);
     const formRes = await fetch(`${API_BASE}/api/v1/responses/survey/${encodeURIComponent(targetId)}/form`, {
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
@@ -27,11 +28,11 @@ async function fetchMetaByCode(code: string) {
     if (!formRes.ok) return null;
 
     const formPayload = await formRes.json();
-    if (!formPayload?.success || !formPayload?.form) return null;
+    if (!formPayload?.success || !formPayload?.data) return null;
 
     return {
       targetId,
-      form: formPayload.form as {
+      form: formPayload.data as {
         title?: string;
         description?: string;
         configuration?: {
@@ -114,8 +115,9 @@ export default async function ShortLinkCatchAll({
 
     if (res.ok) {
       const data = await res.json();
-      if (data.success && (data.slug || data.surveyId)) {
-        redirect(`/survey/${data.slug || data.surveyId}`);
+      const link = data?.data || {};
+      if (data.success && (link.slug || link.surveyId)) {
+        redirect(`/survey/${link.slug || link.surveyId}`);
       }
     }
   } catch {

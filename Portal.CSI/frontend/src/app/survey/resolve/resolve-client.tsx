@@ -10,8 +10,9 @@ export default function ResolveClient({ code }: { code: string }) {
     fetch(`/api/v1/public/survey-link/${encodeURIComponent(code)}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && (data.slug || data.surveyId)) {
-          router.replace(`/survey/${data.slug || data.surveyId}`);
+        const link = data?.data || {};
+        if (data.success && (link.slug || link.surveyId)) {
+          router.replace(`/survey/${link.slug || link.surveyId}`);
         } else {
           router.replace("/");
         }
