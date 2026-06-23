@@ -33,6 +33,11 @@ export type FetchAuditLogsInput = {
 function getErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const maybePayload = payload as Record<string, unknown>;
+  const err = maybePayload.error;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+  }
   if (typeof maybePayload.message === "string") return maybePayload.message;
   if (typeof maybePayload.error === "string") return maybePayload.error;
   return fallback;
@@ -90,13 +95,10 @@ export async function fetchAuditLogs(
     const payload = (await response.json().catch(() => null)) as
       | {
           success?: boolean;
-          logs?: AuditLogItem[];
-          page?: number;
-          pageSize?: number;
-          total?: number;
-          totalPages?: number;
+          data?: AuditLogItem[];
+          meta?: { pagination?: { page?: number; pageSize?: number; total?: number; totalPages?: number } };
           message?: string;
-          error?: string;
+          error?: unknown;
         }
       | null;
 
@@ -124,13 +126,14 @@ export async function fetchAuditLogs(
       };
     }
 
+    const pagination = payload.meta?.pagination || {};
     return {
       success: true,
-      logs: Array.isArray(payload.logs) ? payload.logs : [],
-      page: Number(payload.page || 1),
-      pageSize: Number(payload.pageSize || input.pageSize || 20),
-      total: Number(payload.total || 0),
-      totalPages: Number(payload.totalPages || 1),
+      logs: Array.isArray(payload.data) ? payload.data : [],
+      page: Number(pagination.page || 1),
+      pageSize: Number(pagination.pageSize || input.pageSize || 20),
+      total: Number(pagination.total || 0),
+      totalPages: Number(pagination.totalPages || 1),
     };
   } catch {
     return {
