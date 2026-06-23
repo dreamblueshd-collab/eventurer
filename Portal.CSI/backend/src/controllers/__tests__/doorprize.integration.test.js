@@ -340,7 +340,7 @@ describe('Doorprize API Integration Tests', () => {
         .get('/api/v1/doorprize/events');
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Authentication required');
+      expect(res.body.error.code).toBe('UNAUTHENTICATED');
     });
 
     it('should allow SuperAdmin read-only access to doorprize events', async () => {

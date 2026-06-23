@@ -3,6 +3,7 @@ const router = express.Router();
 const monitoringService = require('../services/monitoringService');
 const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 const logger = require('../config/logger');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
 
 /**
  * @route GET /api/v1/monitoring/health
@@ -35,13 +36,7 @@ router.get('/health', async (req, res) => {
  */
 router.get('/debug-headers', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
-    return res.status(404).json({
-      error: {
-        message: 'Not found',
-        type: 'NotFoundError',
-        statusCode: 404
-      }
-    });
+    return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Not found' });
   }
 
   res.json({
@@ -64,10 +59,7 @@ router.get('/metrics', requireAuth, requireRole('SuperAdmin'), async (req, res) 
     res.json(metrics);
   } catch (error) {
     logger.error('Failed to get metrics:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve metrics',
-      message: error.message
-    });
+    sendError(res, { status: 500, message: 'Failed to retrieve metrics' });
   }
 });
 
@@ -87,14 +79,12 @@ router.post('/metrics/reset', requireAuth, requireRole('SuperAdmin'), (req, res)
     
     res.json({
       success: true,
-      message: 'Metrics reset successfully'
+      data: null,
+      meta: { message: 'Metrics reset successfully' }
     });
   } catch (error) {
     logger.error('Failed to reset metrics:', error);
-    res.status(500).json({
-      error: 'Failed to reset metrics',
-      message: error.message
-    });
+    sendError(res, { status: 500, message: 'Failed to reset metrics' });
   }
 });
 
@@ -112,10 +102,7 @@ router.get('/uptime', (req, res) => {
     });
   } catch (error) {
     logger.error('Failed to get uptime:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve uptime',
-      message: error.message
-    });
+    sendError(res, { status: 500, message: 'Failed to retrieve uptime' });
   }
 });
 
@@ -133,10 +120,7 @@ router.get('/system', requireAuth, requireRole('SuperAdmin'), (req, res) => {
     });
   } catch (error) {
     logger.error('Failed to get system info:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve system information',
-      message: error.message
-    });
+    sendError(res, { status: 500, message: 'Failed to retrieve system information' });
   }
 });
 

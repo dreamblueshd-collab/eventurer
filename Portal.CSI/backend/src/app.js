@@ -47,8 +47,8 @@ const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // 5 attempts per hour
   message: {
-    error: 'Too many password reset attempts',
-    message: 'Too many password reset attempts, please try again later.'
+    success: false,
+    error: { code: 'RATE_LIMITED', message: 'Too many password reset attempts, please try again later.' }
   },
   // Custom key generator to handle undefined IP (iisnode startup issue)
   keyGenerator: (req) => {
@@ -61,8 +61,8 @@ const passwordResetLimiter = rateLimit({
       method: req.body?.method || null
     });
     res.status(429).json({
-      error: 'Too many password reset attempts',
-      message: 'Too many password reset attempts, please try again later.'
+      success: false,
+      error: { code: 'RATE_LIMITED', message: 'Too many password reset attempts, please try again later.' }
     });
   }
 });

@@ -3,6 +3,7 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const config = require('./index');
 const logger = require('./logger');
+const { sendError } = require('../utils/apiResponse');
 
 /**
  * Security configuration module
@@ -120,8 +121,8 @@ function configureRateLimit() {
     windowMs: config.security.rateLimitWindowMs,
     max: isProduction ? config.security.rateLimitMaxRequests : 10000, // Very high limit for dev
     message: {
-      error: 'Too Many Requests',
-      message: 'Too many requests from this IP, please try again later'
+      success: false,
+      error: { code: 'RATE_LIMITED', message: 'Too many requests from this IP, please try again later' }
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -137,8 +138,8 @@ function configureRateLimit() {
       });
       
       res.status(429).json({
-        error: 'Too Many Requests',
-        message: 'Too many requests from this IP, please try again later'
+        success: false,
+        error: { code: 'RATE_LIMITED', message: 'Too many requests from this IP, please try again later' }
       });
     },
     skip: (req) => {
@@ -162,10 +163,13 @@ function configureAuthRateLimit() {
     windowMs,
     max: maxAttempts,
     message: {
-      error: 'Too Many Login Attempts',
-      message: isProduction
-        ? 'Too many login attempts, please try again after 15 minutes'
-        : 'Too many login attempts in development mode, please retry shortly'
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: isProduction
+          ? 'Too many login attempts, please try again after 15 minutes'
+          : 'Too many login attempts in development mode, please retry shortly'
+      }
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -181,10 +185,13 @@ function configureAuthRateLimit() {
       });
       
       res.status(429).json({
-        error: 'Too Many Login Attempts',
-        message: isProduction
-          ? 'Too many login attempts, please try again after 15 minutes'
-          : 'Too many login attempts in development mode, please retry shortly'
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: isProduction
+            ? 'Too many login attempts, please try again after 15 minutes'
+            : 'Too many login attempts in development mode, please retry shortly'
+        }
       });
     }
   });

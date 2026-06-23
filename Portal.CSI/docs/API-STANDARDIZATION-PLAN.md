@@ -196,6 +196,36 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
 - Semua error lewat `sendError`/handler global (bentuk 2.3).
 - OpenAPI + Postman selaras. Test shape hijau.
 
+### 3.6 Penutup & Review Fase 1 (SELESAI ✅)
+Fase 1 (backend) selesai dan diselaraskan. Ringkasan hasil review:
+
+**Cakupan yang sudah standar (envelope `{success,data,meta}` / `{success:false,error:{code,message,details?}}`):**
+- 17/17 controller memakai helper `apiResponse`/`controllerError` (terverifikasi via grep).
+- Global `errorHandler` + `notFoundHandler` memakai envelope.
+- Middleware penolak request: `authMiddleware` (401 `UNAUTHENTICATED`, 403 `FORBIDDEN`,
+  500 `INTERNAL_ERROR`), `security` (CSRF/SQLi/contentType 415/accept 406/size 413/
+  ipFilter/fileUpload), `connectionHandler` (504 `GATEWAY_TIMEOUT`).
+- Rate limit (429 `RATE_LIMITED`) di `config/security.js` + `app.js`.
+- `monitoringRoutes`: jalur error memakai envelope.
+- Dokumentasi: `openapi.yaml` v1.2.0 (skema `SuccessEnvelope`/`ErrorEnvelope`/
+  `PaginationMeta` + katalog kode), kedua koleksi Postman mendokumentasikan envelope.
+
+**Pengecualian yang DISENGAJA (bukan resource API):**
+- Endpoint health/observability sukses (`/health`, `/api/v1/health`,
+  `/monitoring/health|metrics|uptime|system`) tetap memakai format monitoring
+  (status/timestamp/metrics) yang diharapkan tooling.
+- Export biner (Excel/PDF/template) mengirim file langsung (exempt).
+- Auth memakai cookie httpOnly untuk token (token tidak di body).
+
+**Catatan/follow-up (di luar Fase 1):**
+- `doorprize.integration.test.js` (di-exclude dari `test:ci`, butuh DB) perlu
+  realign saat test berbasis DB dijalankan.
+- Service results internal (mis. `phoneOtpService`) memakai `{success,error}` sendiri
+  (bukan response HTTP) — tidak termasuk envelope.
+
+**Verifikasi akhir:** `npm run test:ci` → 29 suite, 341 tes lulus; `node --check` OK;
+`openapi.yaml` & koleksi Postman valid (parse OK).
+
 ---
 
 ## 4. FASE 2 — Frontend (menyesuaikan payload & response)

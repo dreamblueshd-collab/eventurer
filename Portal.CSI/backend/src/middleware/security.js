@@ -1,4 +1,5 @@
 const logger = require('../config/logger');
+const { sendError } = require('../utils/apiResponse');
 
 /**
  * CSRF Token Management
@@ -69,10 +70,7 @@ function csrfProtection(req, res, next) {
       method: req.method
     });
     
-    return res.status(403).json({
-      error: 'CSRF token missing',
-      message: 'CSRF token is required for this operation'
-    });
+    return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'CSRF token is required for this operation' });
   }
   
   // Validate token
@@ -85,10 +83,7 @@ function csrfProtection(req, res, next) {
       method: req.method
     });
     
-    return res.status(403).json({
-      error: 'Invalid CSRF token',
-      message: 'CSRF token is invalid or expired'
-    });
+    return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'CSRF token is invalid or expired' });
   }
   
   // Check expiration
@@ -101,10 +96,7 @@ function csrfProtection(req, res, next) {
       method: req.method
     });
     
-    return res.status(403).json({
-      error: 'Expired CSRF token',
-      message: 'CSRF token has expired, please refresh and try again'
-    });
+    return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'CSRF token has expired, please refresh and try again' });
   }
   
   // Validate IP (optional, can be disabled for mobile apps)
@@ -185,10 +177,7 @@ function sqlInjectionProtection(req, res, next) {
             input: input.substring(0, 100) // Log first 100 chars
           });
           
-          return res.status(400).json({
-            error: 'Invalid input',
-            message: 'Input contains potentially dangerous SQL patterns'
-          });
+          return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Input contains potentially dangerous SQL patterns' });
         }
       }
     }
@@ -293,10 +282,7 @@ function contentTypeValidation(req, res, next) {
       contentType: contentType
     });
     
-    return res.status(415).json({
-      error: 'Unsupported Media Type',
-      message: 'Content-Type must be application/json or multipart/form-data'
-    });
+    return sendError(res, { status: 415, code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Content-Type must be application/json or multipart/form-data' });
   }
   
   next();
@@ -348,10 +334,7 @@ function acceptHeaderValidation(req, res, next) {
       accept: acceptHeader
     });
 
-    return res.status(406).json({
-      error: 'Not Acceptable',
-      message: 'Accept header must allow application/json for this endpoint'
-    });
+    return sendError(res, { status: 406, code: 'NOT_ACCEPTABLE', message: 'Accept header must allow application/json for this endpoint' });
   }
 
   next();
@@ -374,10 +357,7 @@ function requestSizeValidation(maxSize = 10 * 1024 * 1024) { // 10MB default
         maxSize: maxSize
       });
       
-      return res.status(413).json({
-        error: 'Payload Too Large',
-        message: `Request size exceeds maximum allowed size of ${maxSize / 1024 / 1024}MB`
-      });
+      return sendError(res, { status: 413, code: 'PAYLOAD_TOO_LARGE', message: `Request size exceeds maximum allowed size of ${maxSize / 1024 / 1024}MB` });
     }
     
     next();
@@ -402,10 +382,7 @@ function ipFilter(options = {}) {
         method: req.method
       });
       
-      return res.status(403).json({
-        error: 'Access Denied',
-        message: 'Your IP address has been blocked'
-      });
+      return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'Your IP address has been blocked' });
     }
     
     // Check whitelist if configured
@@ -416,10 +393,7 @@ function ipFilter(options = {}) {
         method: req.method
       });
       
-      return res.status(403).json({
-        error: 'Access Denied',
-        message: 'Your IP address is not authorized'
-      });
+      return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'Your IP address is not authorized' });
     }
     
     next();
@@ -476,10 +450,7 @@ function fileUploadSecurity(allowedTypes = []) {
               allowedTypes: allowedTypes
             });
             
-            return res.status(400).json({
-              error: 'Invalid file type',
-              message: `File type ${mimeType} is not allowed`
-            });
+            return sendError(res, { status: 400, code: 'BAD_REQUEST', message: `File type ${mimeType} is not allowed` });
           }
         }
         
@@ -493,10 +464,7 @@ function fileUploadSecurity(allowedTypes = []) {
             fileName: fileName
           });
           
-          return res.status(400).json({
-            error: 'Invalid file',
-            message: 'Executable files are not allowed'
-          });
+          return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Executable files are not allowed' });
         }
       }
     }
