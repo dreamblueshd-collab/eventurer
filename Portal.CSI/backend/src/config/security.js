@@ -1,5 +1,6 @@
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const cors = require('cors');
 const config = require('./index');
 const logger = require('./logger');
@@ -126,10 +127,9 @@ function configureRateLimit() {
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Custom key generator to handle undefined IP (iisnode startup issue)
-    keyGenerator: (req) => {
-      return req.ip || (req.socket && req.socket.remoteAddress) || 'unknown';
-    },
+    // Custom key generator to handle undefined IP (iisnode startup issue).
+    // ipKeyGenerator normalizes IPv6 addresses (required by express-rate-limit v8).
+    keyGenerator: (req) => ipKeyGenerator(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown'),
     handler: (req, res) => {
       logger.warn('Rate limit exceeded', {
         ip: req.ip,
@@ -174,10 +174,9 @@ function configureAuthRateLimit() {
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Don't count successful logins
-    // Custom key generator to handle undefined IP (iisnode startup issue)
-    keyGenerator: (req) => {
-      return req.ip || (req.socket && req.socket.remoteAddress) || 'unknown';
-    },
+    // Custom key generator to handle undefined IP (iisnode startup issue).
+    // ipKeyGenerator normalizes IPv6 addresses (required by express-rate-limit v8).
+    keyGenerator: (req) => ipKeyGenerator(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown'),
     handler: (req, res) => {
       logger.warn('Auth rate limit exceeded', {
         ip: req.ip,

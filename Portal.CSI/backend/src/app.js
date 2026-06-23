@@ -43,6 +43,7 @@ app.use('/api/v1/auth/login', configureAuthRateLimit());
 
 // Rate limiting - Password reset endpoints (stricter)
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // 5 attempts per hour
@@ -50,10 +51,9 @@ const passwordResetLimiter = rateLimit({
     success: false,
     error: { code: 'RATE_LIMITED', message: 'Too many password reset attempts, please try again later.' }
   },
-  // Custom key generator to handle undefined IP (iisnode startup issue)
-  keyGenerator: (req) => {
-    return req.ip || (req.socket && req.socket.remoteAddress) || 'unknown';
-  },
+  // Custom key generator to handle undefined IP (iisnode startup issue).
+  // ipKeyGenerator normalizes IPv6 addresses (required by express-rate-limit v8).
+  keyGenerator: (req) => ipKeyGenerator(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown'),
   handler: (req, res) => {
     logger.warn('Password reset rate limit exceeded', {
       ip: req.ip,
