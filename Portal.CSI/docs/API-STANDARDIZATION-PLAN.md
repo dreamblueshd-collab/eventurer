@@ -257,7 +257,7 @@ Fase 1 (backend) selesai dan diselaraskan. Ringkasan hasil review:
 ### 4.2 Langkah migrasi (cermin dari modul Fase 1)
 Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
 - [x] `lib/auth.ts` (login/validate -> `data`, forgot/reset -> `meta.message`), `fetch-with-auth.ts` — **SELESAI**
-- [ ] `lib/master-data.ts`, `lib/org-hierarchy.ts`, `lib/users.ts`
+- [x] `lib/master-data.ts`, `lib/org-hierarchy.ts`, `lib/users.ts` — **SELESAI**
 - [ ] `lib/mappings.ts`
 - [ ] `lib/survey-events.ts`, `lib/survey-questions.ts`, `lib/public-survey.ts`,
       `lib/survey-distribution.ts`

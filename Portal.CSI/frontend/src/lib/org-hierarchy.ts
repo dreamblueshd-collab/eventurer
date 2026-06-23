@@ -1,6 +1,7 @@
 "use client";
 
 import { getAccessToken } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/api-client";
 
 const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
 
@@ -25,11 +26,7 @@ export type DepartmentOption = {
 };
 
 function getErrorMessage(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const data = payload as Record<string, unknown>;
-  if (typeof data.message === "string") return data.message;
-  if (typeof data.error === "string") return data.error;
-  return fallback;
+  return getApiErrorMessage(payload, fallback);
 }
 
 export async function fetchOrgHierarchy(): Promise<{
@@ -85,13 +82,13 @@ export async function fetchOrgHierarchy(): Promise<{
       };
     }
 
-    const businessUnits = ((buPayload as { businessUnits?: BusinessUnitOption[] } | null)?.businessUnits || []).filter(
+    const businessUnits = ((buPayload as { data?: BusinessUnitOption[] } | null)?.data || []).filter(
       (item) => item?.IsActive !== false
     );
-    const divisions = ((divPayload as { divisions?: DivisionOption[] } | null)?.divisions || []).filter(
+    const divisions = ((divPayload as { data?: DivisionOption[] } | null)?.data || []).filter(
       (item) => item?.IsActive !== false
     );
-    const departments = ((deptPayload as { departments?: DepartmentOption[] } | null)?.departments || []).filter(
+    const departments = ((deptPayload as { data?: DepartmentOption[] } | null)?.data || []).filter(
       (item) => item?.IsActive !== false
     );
 

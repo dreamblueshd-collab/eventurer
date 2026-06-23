@@ -1,6 +1,7 @@
 "use client";
 
 import { getAccessToken, redirectToLogin } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/api-client";
 
 const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
 
@@ -49,15 +50,7 @@ export type ApplicationMaster = {
 };
 
 function getErrorMessage(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const data = payload as Record<string, unknown>;
-  if (typeof data.message === "string") return data.message;
-  if (typeof data.error === "string") return data.error;
-  if (Array.isArray(data.details) && data.details.length > 0) {
-    const first = data.details[0] as Record<string, unknown>;
-    if (first && typeof first.msg === "string") return first.msg;
-  }
-  return fallback;
+  return getApiErrorMessage(payload, fallback);
 }
 
 function tryParseJson<T>(text: string): T | null {
@@ -128,7 +121,7 @@ export async function fetchBusinessUnitsMaster(): Promise<ApiResult<BusinessUnit
     "/business-units?includeInactive=true",
     { method: "GET" },
     "Gagal memuat business unit",
-    (payload) => ((payload as { businessUnits?: BusinessUnitMaster[] } | null)?.businessUnits || [])
+    (payload) => ((payload as { data?: BusinessUnitMaster[] } | null)?.data || [])
   );
 }
 
@@ -137,7 +130,7 @@ export async function createBusinessUnitMaster(input: { name: string }): Promise
     "/business-units",
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah business unit",
-    (payload) => (payload as { businessUnit: BusinessUnitMaster }).businessUnit
+    (payload) => (payload as { data: BusinessUnitMaster }).data
   );
 }
 
@@ -146,7 +139,7 @@ export async function updateBusinessUnitMaster(id: number, input: Partial<{ name
     `/business-units/${id}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui business unit",
-    (payload) => (payload as { businessUnit: BusinessUnitMaster }).businessUnit
+    (payload) => (payload as { data: BusinessUnitMaster }).data
   );
 }
 
@@ -155,7 +148,7 @@ export async function fetchDivisionsMaster(): Promise<ApiResult<DivisionMaster[]
     "/divisions?includeInactive=true",
     { method: "GET" },
     "Gagal memuat divisi",
-    (payload) => ((payload as { divisions?: DivisionMaster[] } | null)?.divisions || [])
+    (payload) => ((payload as { data?: DivisionMaster[] } | null)?.data || [])
   );
 }
 
@@ -164,7 +157,7 @@ export async function createDivisionMaster(input: { businessUnitId: number; name
     "/divisions",
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah divisi",
-    (payload) => (payload as { division: DivisionMaster }).division
+    (payload) => (payload as { data: DivisionMaster }).data
   );
 }
 
@@ -173,7 +166,7 @@ export async function updateDivisionMaster(id: number, input: Partial<{ business
     `/divisions/${id}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui divisi",
-    (payload) => (payload as { division: DivisionMaster }).division
+    (payload) => (payload as { data: DivisionMaster }).data
   );
 }
 
@@ -182,7 +175,7 @@ export async function fetchDepartmentsMaster(): Promise<ApiResult<DepartmentMast
     "/departments?includeInactive=true",
     { method: "GET" },
     "Gagal memuat department",
-    (payload) => ((payload as { departments?: DepartmentMaster[] } | null)?.departments || [])
+    (payload) => ((payload as { data?: DepartmentMaster[] } | null)?.data || [])
   );
 }
 
@@ -191,7 +184,7 @@ export async function createDepartmentMaster(input: { divisionId: number; name: 
     "/departments",
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah department",
-    (payload) => (payload as { department: DepartmentMaster }).department
+    (payload) => (payload as { data: DepartmentMaster }).data
   );
 }
 
@@ -200,7 +193,7 @@ export async function updateDepartmentMaster(id: number, input: Partial<{ divisi
     `/departments/${id}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui department",
-    (payload) => (payload as { department: DepartmentMaster }).department
+    (payload) => (payload as { data: DepartmentMaster }).data
   );
 }
 
@@ -209,7 +202,7 @@ export async function fetchFunctionsMaster(): Promise<ApiResult<FunctionMaster[]
     "/functions?includeInactive=true",
     { method: "GET" },
     "Gagal memuat function",
-    (payload) => ((payload as { functions?: FunctionMaster[] } | null)?.functions || [])
+    (payload) => ((payload as { data?: FunctionMaster[] } | null)?.data || [])
   );
 }
 
@@ -218,7 +211,7 @@ export async function createFunctionMaster(input: { name: string; itLeadUserId?:
     "/functions",
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah function",
-    (payload) => (payload as { function: FunctionMaster }).function
+    (payload) => (payload as { data: FunctionMaster }).data
   );
 }
 
@@ -227,7 +220,7 @@ export async function updateFunctionMaster(id: number, input: Partial<{ name: st
     `/functions/${id}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui function",
-    (payload) => (payload as { function: FunctionMaster }).function
+    (payload) => (payload as { data: FunctionMaster }).data
   );
 }
 
@@ -236,7 +229,7 @@ export async function fetchApplicationsMaster(): Promise<ApiResult<ApplicationMa
     "/applications?includeInactive=true",
     { method: "GET" },
     "Gagal memuat aplikasi",
-    (payload) => ((payload as { applications?: ApplicationMaster[] } | null)?.applications || [])
+    (payload) => ((payload as { data?: ApplicationMaster[] } | null)?.data || [])
   );
 }
 
@@ -245,7 +238,7 @@ export async function createApplicationMaster(input: { name: string; description
     "/applications",
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah aplikasi",
-    (payload) => (payload as { application: ApplicationMaster }).application
+    (payload) => (payload as { data: ApplicationMaster }).data
   );
 }
 
@@ -254,7 +247,7 @@ export async function updateApplicationMaster(id: number, input: Partial<{ name:
     `/applications/${id}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui aplikasi",
-    (payload) => (payload as { application: ApplicationMaster }).application
+    (payload) => (payload as { data: ApplicationMaster }).data
   );
 }
 
@@ -297,23 +290,27 @@ export async function uploadBusinessUnitFile(file: File): Promise<{
     const rawText = await response.text().catch(() => "");
     const payload = tryParseJson<{
       success?: boolean;
-      message?: string;
-      imported?: number;
-      updated?: number;
-      failed?: number;
-      errors?: Array<{ row: number; data: unknown; errors: string[] }>;
+      meta?: { message?: string };
+      data?: {
+        imported?: number;
+        updated?: number;
+        failed?: number;
+        errors?: Array<{ row: number; data: unknown; errors: string[] }>;
+      };
+      error?: { message?: string; details?: Array<{ row: number; data: unknown; errors: string[] }> };
     }>(rawText);
     if (!response.ok || !payload?.success) {
-      const message = payload?.message || "Gagal upload file";
-      return { success: false, message, errors: payload?.errors };
+      const message = getErrorMessage(payload, "Gagal upload file");
+      const failureErrors = payload?.error?.details;
+      return { success: false, message, errors: Array.isArray(failureErrors) ? failureErrors : undefined };
     }
     return {
       success: true,
-      message: payload.message,
-      imported: payload.imported,
-      updated: payload.updated,
-      failed: payload.failed,
-      errors: payload.errors,
+      message: payload.meta?.message,
+      imported: payload.data?.imported,
+      updated: payload.data?.updated,
+      failed: payload.data?.failed,
+      errors: payload.data?.errors,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
@@ -361,23 +358,27 @@ async function uploadFile(endpoint: string, file: File): Promise<UploadResult> {
     const rawText = await response.text().catch(() => "");
     const payload = tryParseJson<{
       success?: boolean;
-      message?: string;
-      imported?: number;
-      updated?: number;
-      failed?: number;
-      errors?: Array<{ row: number; data: unknown; errors: string[] }>;
+      meta?: { message?: string };
+      data?: {
+        imported?: number;
+        updated?: number;
+        failed?: number;
+        errors?: Array<{ row: number; data: unknown; errors: string[] }>;
+      };
+      error?: { message?: string; details?: Array<{ row: number; data: unknown; errors: string[] }> };
     }>(rawText);
     if (!response.ok || !payload?.success) {
-      const message = payload?.message || "Gagal upload file";
-      return { success: false, message, errors: payload?.errors };
+      const message = getErrorMessage(payload, "Gagal upload file");
+      const failureErrors = payload?.error?.details;
+      return { success: false, message, errors: Array.isArray(failureErrors) ? failureErrors : undefined };
     }
     return {
       success: true,
-      message: payload.message,
-      imported: payload.imported,
-      updated: payload.updated,
-      failed: payload.failed,
-      errors: payload.errors,
+      message: payload.meta?.message,
+      imported: payload.data?.imported,
+      updated: payload.data?.updated,
+      failed: payload.data?.failed,
+      errors: payload.data?.errors,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
