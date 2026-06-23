@@ -92,10 +92,6 @@ class AuthService {
       || 'http://10.14.181.31:6001';
   }
 
-  isUuid(value) {
-    return false; // UUID no longer used — all IDs are BIGINT
-  }
-
   async resolveUserId(userIdentifier) {
     const numericId = Number(userIdentifier);
     if (numericId && numericId > 0) return numericId;

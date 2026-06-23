@@ -14,18 +14,31 @@ const logger = require('./logger');
  * @returns {Function} CORS middleware
  */
 function configureCORS() {
+  const wildcardOrigin = config.security.corsOrigin === '*';
+  // In production we never reflect arbitrary origins together with credentials:true,
+  // because that is effectively "allow any site to call us with the user's cookies".
+  // validateSecurityConfig() blocks startup when CORS_ORIGIN='*' in production, so
+  // wildcard reflection below only ever applies to local/dev environments.
+  const allowReflectInDev = wildcardOrigin && !config.isProduction();
+
   const corsOptions = {
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
+      // Allow requests with no origin (mobile apps, Postman, server-to-server, etc.)
       if (!origin) {
         return callback(null, true);
       }
 
-      const allowedOrigins = config.security.corsOrigin === '*' 
-        ? [origin] 
-        : config.security.corsOrigin.split(',').map(o => o.trim());
+      // Dev convenience: reflect the caller origin so localhost:3001 etc. works.
+      if (allowReflectInDev) {
+        return callback(null, true);
+      }
 
-      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      const allowedOrigins = config.security.corsOrigin
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         logger.warn('CORS blocked request from origin:', origin);
@@ -235,7 +248,7 @@ function validateSecurityConfig() {
     }
 
     if (config.security.corsOrigin === '*') {
-      warnings.push('CORS is set to allow all origins in production');
+      errors.push('CORS_ORIGIN must be set to explicit origin(s) in production (wildcard "*" with credentials is not allowed)');
     }
 
     if (config.jwt.secret && config.jwt.secret.length < 32) {
@@ -270,10 +283,10 @@ function applySecurityMiddleware(app) {
   // Validate configuration
   validateSecurityConfig();
 
-  // Trust proxy (for rate limiting and IP detection behind load balancer)
-  if (config.isProduction()) {
-    app.set('trust proxy', 1);
-  }
+  // NOTE: `trust proxy` is configured centrally in app.js (set to 'loopback' for
+  // IIS/iisnode) so that req.ip resolves to the real client while preventing
+  // X-Forwarded-For spoofing. It is intentionally NOT set here to avoid a
+  // conflicting double-configuration.
 
   // Helmet security headers
   app.use(configureHelmet());
