@@ -214,7 +214,8 @@ describe('doorprizeController', () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'UnauthorizedAccess',
+          success: false,
+          error: expect.objectContaining({ code: 'FORBIDDEN' }),
         })
       );
       expect(next).not.toHaveBeenCalled();

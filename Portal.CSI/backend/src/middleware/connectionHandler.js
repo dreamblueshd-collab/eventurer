@@ -1,4 +1,5 @@
 const logger = require('../config/logger');
+const { sendError } = require('../utils/apiResponse');
 
 /**
  * Middleware to handle connection errors and timeouts
@@ -101,8 +102,7 @@ function uploadTimeoutHandler(timeoutMs = 300000) {
         
         res.status(504).json({
           success: false,
-          error: 'Upload timeout',
-          message: 'File upload took too long. Please try with a smaller file.'
+          error: { code: 'GATEWAY_TIMEOUT', message: 'File upload took too long. Please try with a smaller file.' }
         });
       }
     }, timeoutMs);
@@ -139,11 +139,10 @@ function safeUploadHandler(handler) {
         });
 
         const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({
-          success: false,
+        sendError(res, {
+          status: statusCode,
           message: error.message || 'Upload failed',
-          errors: error.errors || [],
-          code: error.code
+          details: error.errors || undefined
         });
       } else {
         logger.error('Upload error after headers sent', {

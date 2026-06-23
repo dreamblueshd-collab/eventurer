@@ -1,5 +1,6 @@
 const authService = require('../services/authService');
 const logger = require('../config/logger');
+const { sendError } = require('../utils/apiResponse');
 
 /**
  * Role definitions
@@ -138,20 +139,14 @@ async function requireAuth(req, res, next) {
     const token = extractToken(req);
 
     if (!token) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'No authentication token provided'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'No authentication token provided' });
     }
 
     // Validate token
     const validation = await authService.validateToken(token);
 
     if (!validation.isValid) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: validation.errorMessage || 'Invalid or expired token'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: validation.errorMessage || 'Invalid or expired token' });
     }
 
     // Attach user info to request
@@ -165,10 +160,7 @@ async function requireAuth(req, res, next) {
 
   } catch (error) {
     logger.error('Authentication middleware error:', error);
-    return res.status(500).json({
-      error: 'Authentication error',
-      message: 'An error occurred during authentication'
-    });
+    return sendError(res, { status: 500, code: 'INTERNAL_ERROR', message: 'An error occurred during authentication' });
   }
 }
 
@@ -182,20 +174,14 @@ function requireRole(...allowedRoles) {
   return (req, res, next) => {
     // Check if user is authenticated
     if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'User not authenticated'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'User not authenticated' });
     }
 
     // Check if user has one of the allowed roles
     if (!allowedRoles.includes(req.user.role)) {
       logger.warn(`Access denied for user ${req.user.username} (${req.user.role}) - Required roles: ${allowedRoles.join(', ')}`);
       
-      return res.status(403).json({
-        error: 'Access denied',
-        message: 'You do not have permission to access this resource'
-      });
+      return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'You do not have permission to access this resource' });
     }
 
     next();
@@ -212,19 +198,13 @@ function requirePermission(permission) {
   return (req, res, next) => {
     // Check if user is authenticated
     if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        message: 'User not authenticated'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'User not authenticated' });
     }
 
     // Check if permission exists
     if (!PERMISSIONS[permission]) {
       logger.error(`Unknown permission: ${permission}`);
-      return res.status(500).json({
-        error: 'Configuration error',
-        message: 'Invalid permission configuration'
-      });
+      return sendError(res, { status: 500, code: 'INTERNAL_ERROR', message: 'Invalid permission configuration' });
     }
 
     // Check if user's role has the permission
@@ -232,8 +212,9 @@ function requirePermission(permission) {
     if (!allowedRoles.includes(req.user.role)) {
       logger.warn(`Access denied for user ${req.user.username} (${req.user.role}) - Required permission: ${permission} - Allowed roles: ${allowedRoles.join(', ')}`);
       
-      return res.status(403).json({
-        error: 'UnauthorizedAccess',
+      return sendError(res, {
+        status: 403,
+        code: 'FORBIDDEN',
         message: `Access is denied due to invalid credentials. Required permission: ${permission}. Your role (${req.user.role}) does not have access to this resource.`
       });
     }

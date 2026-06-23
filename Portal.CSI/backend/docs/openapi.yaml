@@ -1,9 +1,33 @@
 openapi: 3.0.3
 info:
   title: CSI Portal API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     Current API contract for CSI Web App.
+
+    ## Standard response envelope (Phase 1)
+    Every JSON endpoint returns a consistent envelope.
+
+    Success:
+    ```json
+    { "success": true, "data": <payload>, "meta": { } }
+    ```
+    - `data` always holds the primary payload (object, array, or null).
+    - `meta` is optional (pagination, counts, a human message, etc.).
+    - Lists with pagination expose `meta.pagination { page, pageSize, total, totalPages }`.
+
+    Error:
+    ```json
+    { "success": false, "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [] } }
+    ```
+    - `code` is a stable UPPER_SNAKE_CASE string (machine-readable).
+    - Stable codes: BAD_REQUEST(400), UNAUTHENTICATED(401), FORBIDDEN(403),
+      NOT_FOUND(404), NOT_ACCEPTABLE(406), CONFLICT(409), PAYLOAD_TOO_LARGE(413),
+      UNSUPPORTED_MEDIA_TYPE(415), VALIDATION_ERROR(422), RATE_LIMITED(429),
+      INTERNAL_ERROR(500), SERVICE_UNAVAILABLE(503).
+    - Binary endpoints (Excel/PDF/template exports) return the file directly and are
+      exempt from the envelope.
+
     Notes:
     - User endpoints accept `UserId` or `Username` where the path uses `{id}`.
     - Survey/Event endpoints accept `SurveyId` (UUID) or `SurveyNo` (numeric string).
@@ -557,10 +581,12 @@ components:
           type: string
           enum: [SuperAdmin, AdminEvent, ITLead, DepartmentHead]
     LoginResponse:
-      type: object
-      properties:
-        success: { type: boolean, example: true }
-        user: { $ref: "#/components/schemas/AuthUser" }
+      description: Standard success envelope wrapping the authenticated user.
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/AuthUser" }
     CreateUserRequest:
       type: object
       required: [username, displayName, email, role]
@@ -630,3 +656,56 @@ components:
         assignedAdminIds:
           type: array
           items: { type: string, format: uuid }
+    PaginationMeta:
+      type: object
+      properties:
+        page: { type: integer, example: 1 }
+        pageSize: { type: integer, example: 20 }
+        total: { type: integer, example: 137 }
+        totalPages: { type: integer, example: 7 }
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          nullable: true
+          description: Primary payload (object, array, or null).
+        meta:
+          type: object
+          description: Optional metadata (pagination, counts, message).
+          properties:
+            message: { type: string }
+            count: { type: integer }
+            pagination: { $ref: "#/components/schemas/PaginationMeta" }
+    ValidationErrorItem:
+      type: object
+      properties:
+        type: { type: string }
+        msg: { type: string }
+        path: { type: string }
+        location: { type: string }
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable error code.
+              example: VALIDATION_ERROR
+            message: { type: string, example: Validasi gagal }
+            details:
+              type: array
+              nullable: true
+              items: { $ref: "#/components/schemas/ValidationErrorItem" }
+  responses:
+    Error:
+      description: Standard error envelope.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
