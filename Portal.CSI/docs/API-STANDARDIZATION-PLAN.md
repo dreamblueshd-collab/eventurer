@@ -156,7 +156,8 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
    - [x] `userController` — **SELESAI**
    - [x] `mappingController`, `integrationController` — `mappingController` **SELESAI**;
          `integrationController` menyusul
-   - [ ] `surveyController`, `questionController`, `responseController`
+   - [x] `questionController`, `responseController` — **SELESAI**;
+         `surveyController` (besar, ~1135 baris) menyusul di PR tersendiri
    - [ ] `approvalController`
    - [ ] `doorprizeController`
    - [ ] `reportController` (perhatikan endpoint export non-JSON)
