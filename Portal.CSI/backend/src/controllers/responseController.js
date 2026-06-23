@@ -1,32 +1,12 @@
-const { body, param, query, validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const responseService = require('../services/responseService');
 const { getIpAddress } = require('../utils/auditHelpers');
 const logger = require('../config/logger');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 // Accept both numeric IDs and slugs (e.g. "survey-corp-it-bpm-2026")
 const surveyIdentifierPattern = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-
-function handleResponseError(res, error, fallbackMessage) {
-  const name = String(error?.name || '');
-  if (name === 'ValidationError' || name === 'DuplicateError') {
-    return res.status(400).json({
-      error: 'Validation failed',
-      message: error.message || fallbackMessage
-    });
-  }
-  if (name === 'NotFoundError') {
-    return res.status(404).json({
-      error: 'Not found',
-      message: error.message || fallbackMessage
-    });
-  }
-
-  logger.error(fallbackMessage, error);
-  return res.status(500).json({
-    error: 'Internal server error',
-    message: fallbackMessage
-  });
-}
 
 /**
  * Validation rules for submitting a response
@@ -67,36 +47,24 @@ const submitResponseValidation = [
 /**
  * Get survey form
  * GET /api/v1/responses/survey/:surveyId/form
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getSurveyForm(req, res) {
   try {
-    const surveyId = req.params.surveyId;
-    const form = await responseService.getSurveyForm(surveyId);
+    const form = await responseService.getSurveyForm(req.params.surveyId);
 
     if (!form) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Survey not found or not active'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Survey not found or not active' });
     }
 
-    res.json({
-      success: true,
-      form
-    });
-
+    return sendSuccess(res, form);
   } catch (error) {
-    return handleResponseError(res, error, 'An error occurred while fetching survey form');
+    return handleControllerError(res, error, 'An error occurred while fetching survey form');
   }
 }
 
 /**
  * Get available applications for a survey
  * GET /api/v1/responses/survey/:surveyId/applications?departmentId=1
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getAvailableApplications(req, res) {
   try {
@@ -106,30 +74,21 @@ async function getAvailableApplications(req, res) {
 
     const applications = await responseService.getAvailableApplications(surveyId, departmentId, functionId);
 
-    res.json({
-      success: true,
-      applications
-    });
-
+    return sendSuccess(res, applications);
   } catch (error) {
-    return handleResponseError(res, error, 'An error occurred while fetching applications');
+    return handleControllerError(res, error, 'An error occurred while fetching applications');
   }
 }
 
 /**
  * Submit survey response
  * POST /api/v1/responses
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function submitResponse(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const responseData = {
@@ -140,28 +99,18 @@ async function submitResponse(req, res) {
     const result = await responseService.submitResponse(responseData);
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Response submission failed',
-        message: result.errorMessage
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: result.errorMessage });
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Response submitted successfully',
-      responseIds: result.responseIds
-    });
-
+    return sendCreated(res, { responseIds: result.responseIds }, { meta: { message: 'Response submitted successfully' } });
   } catch (error) {
-    return handleResponseError(res, error, 'An error occurred while submitting response');
+    return handleControllerError(res, error, 'An error occurred while submitting response');
   }
 }
 
 /**
  * Check for duplicate response
  * POST /api/v1/responses/check-duplicate
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function checkDuplicateResponse(req, res) {
   try {
@@ -171,18 +120,11 @@ async function checkDuplicateResponse(req, res) {
       : (applicationId ? [applicationId] : []);
 
     if (!surveyId || normalizedApplicationIds.length === 0) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Survey ID and application ID are required'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Survey ID and application ID are required' });
     }
 
     if (!String(email || '').trim()) {
-      return res.json({
-        success: true,
-        isDuplicate: false,
-        message: 'Duplicate check skipped because no email was provided'
-      });
+      return sendSuccess(res, { isDuplicate: false }, { meta: { message: 'Duplicate check skipped because no email was provided' } });
     }
 
     let duplicateFound = false;
@@ -195,26 +137,18 @@ async function checkDuplicateResponse(req, res) {
       }
     }
 
-    res.json({
-      success: true,
-      isDuplicate: duplicateFound,
-      message: duplicateFound ? 'Duplicate response found for one or more applications' : 'No duplicate response'
+    return sendSuccess(res, { isDuplicate: duplicateFound }, {
+      meta: { message: duplicateFound ? 'Duplicate response found for one or more applications' : 'No duplicate response' }
     });
-
   } catch (error) {
     logger.error('Check duplicate response controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while checking for duplicates'
-    });
+    return sendError(res, { status: 500, message: 'An error occurred while checking for duplicates' });
   }
 }
 
 /**
  * Get responses with filters
  * GET /api/v1/responses
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getResponses(req, res) {
   try {
@@ -229,21 +163,15 @@ async function getResponses(req, res) {
 
     const responses = await responseService.getResponses(filter);
 
-    res.json({
-      success: true,
-      responses
-    });
-
+    return sendSuccess(res, responses);
   } catch (error) {
-    return handleResponseError(res, error, 'An error occurred while fetching responses');
+    return handleControllerError(res, error, 'An error occurred while fetching responses');
   }
 }
 
 /**
  * Get response by ID
  * GET /api/v1/responses/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getResponseById(req, res) {
   try {
@@ -251,40 +179,26 @@ async function getResponseById(req, res) {
     const response = await responseService.getResponseById(responseId);
 
     if (!response) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Response not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Response not found' });
     }
 
-    res.json({
-      success: true,
-      response
-    });
-
+    return sendSuccess(res, response);
   } catch (error) {
-    return handleResponseError(res, error, 'An error occurred while fetching response');
+    return handleControllerError(res, error, 'An error occurred while fetching response');
   }
 }
 
 /**
  * Get response statistics
  * GET /api/v1/responses/survey/:surveyId/statistics
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getResponseStatistics(req, res) {
   try {
-    const surveyId = req.params.surveyId;
-    const statistics = await responseService.getResponseStatistics(surveyId);
+    const statistics = await responseService.getResponseStatistics(req.params.surveyId);
 
-    res.json({
-      success: true,
-      statistics
-    });
-
+    return sendSuccess(res, statistics);
   } catch (error) {
-    return handleResponseError(res, error, 'An error occurred while fetching statistics');
+    return handleControllerError(res, error, 'An error occurred while fetching statistics');
   }
 }
 
