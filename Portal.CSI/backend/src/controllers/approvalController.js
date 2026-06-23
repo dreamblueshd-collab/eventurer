@@ -1,34 +1,23 @@
-const { body, param, query, validationResult } = require('express-validator');
 const approvalService = require('../services/approvalService');
-const logger = require('../config/logger');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError } = require('../utils/controllerError');
 
+/**
+ * Map approval-service errors to the standard error envelope.
+ * UnauthorizedError stays a 403 (forbidden) to preserve approval semantics;
+ * everything else delegates to the shared handler (ValidationError->422,
+ * NotFoundError->404, otherwise 500).
+ */
 function handleApprovalError(res, error, fallbackMessage) {
-  if (error?.name === 'ValidationError' || error?.name === 'NotFoundError') {
-    return res.status(400).json({
-      error: 'Validation failed',
-      message: fallbackMessage
-    });
-  }
-
   if (error?.name === 'UnauthorizedError') {
-    return res.status(403).json({
-      error: 'Forbidden',
-      message: 'Akses tidak diizinkan'
-    });
+    return sendError(res, { status: 403, code: 'FORBIDDEN', message: 'Akses tidak diizinkan' });
   }
-
-  logger.error(fallbackMessage, error);
-  return res.status(500).json({
-    error: 'Internal server error',
-    message: fallbackMessage
-  });
+  return handleControllerError(res, error, fallbackMessage);
 }
 
 /**
  * Propose takeout for question
  * POST /api/v1/approvals/propose-takeout
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function proposeTakeoutForQuestion(req, res) {
   try {
@@ -36,10 +25,7 @@ async function proposeTakeoutForQuestion(req, res) {
     const proposedBy = req.user?.userId;
 
     if (!responseId || !questionId || !reason) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Response ID, question ID, and reason are required'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Response ID, question ID, and reason are required' });
     }
 
     const result = await approvalService.proposeTakeoutForQuestion({
@@ -51,17 +37,10 @@ async function proposeTakeoutForQuestion(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Propose takeout failed',
-        message: 'Gagal mengusulkan takeout'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal mengusulkan takeout' });
     }
 
-    res.json({
-      success: true,
-      message: 'Takeout proposed successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Takeout proposed successfully' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while proposing takeout');
   }
@@ -70,8 +49,6 @@ async function proposeTakeoutForQuestion(req, res) {
 /**
  * Bulk propose takeout
  * POST /api/v1/approvals/bulk-propose-takeout
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function bulkProposeTakeout(req, res) {
   try {
@@ -81,20 +58,20 @@ async function bulkProposeTakeout(req, res) {
     const result = await approvalService.bulkProposeTakeout(responseIds, questionIds, reason, proposedBy);
 
     if (!result || (Array.isArray(result.success) && result.success.length === 0 && result.failed.length > 0)) {
-      return res.status(400).json({
-        error: 'Bulk propose takeout failed',
+      return sendError(res, {
+        status: 400,
+        code: 'BAD_REQUEST',
         message: 'Semua item gagal diproses',
-        failed: result?.failed || []
+        details: result?.failed || []
       });
     }
 
-    res.json({
-      success: true,
-      message: 'Bulk takeout proposed successfully',
+    return sendSuccess(res, {
       count: Array.isArray(result.success) ? result.success.length : (result.count || 0),
       failed: Array.isArray(result.failed) ? result.failed : []
+    }, {
+      meta: { message: 'Bulk takeout proposed successfully' }
     });
-
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal mengusulkan bulk takeout');
   }
@@ -103,8 +80,6 @@ async function bulkProposeTakeout(req, res) {
 /**
  * Cancel proposed takeout
  * DELETE /api/v1/approvals/propose-takeout
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function cancelProposedTakeout(req, res) {
   try {
@@ -118,17 +93,10 @@ async function cancelProposedTakeout(req, res) {
     );
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Cancel takeout failed',
-        message: 'Gagal membatalkan takeout'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal membatalkan takeout' });
     }
 
-    res.json({
-      success: true,
-      message: 'Proposed takeout cancelled successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Proposed takeout cancelled successfully' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while cancelling takeout');
   }
@@ -137,8 +105,6 @@ async function cancelProposedTakeout(req, res) {
 /**
  * Approve proposed takeout
  * POST /api/v1/approvals/approve
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function approveProposedTakeout(req, res) {
   try {
@@ -154,17 +120,10 @@ async function approveProposedTakeout(req, res) {
     );
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Approval failed',
-        message: 'Gagal melakukan approval'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal melakukan approval' });
     }
 
-    res.json({
-      success: true,
-      message: 'Takeout approved successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Takeout approved successfully' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while approving takeout');
   }
@@ -173,8 +132,6 @@ async function approveProposedTakeout(req, res) {
 /**
  * Reject proposed takeout
  * POST /api/v1/approvals/reject
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function rejectProposedTakeout(req, res) {
   try {
@@ -182,10 +139,7 @@ async function rejectProposedTakeout(req, res) {
     const rejectedBy = req.user?.userId;
 
     if (!reason) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Reason is required for rejection'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Reason is required for rejection' });
     }
 
     const result = await approvalService.rejectProposedTakeout(
@@ -197,17 +151,10 @@ async function rejectProposedTakeout(req, res) {
     );
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Rejection failed',
-        message: 'Gagal melakukan rejection'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal melakukan rejection' });
     }
 
-    res.json({
-      success: true,
-      message: 'Takeout rejected successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Takeout rejected successfully' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while rejecting takeout');
   }
@@ -216,8 +163,6 @@ async function rejectProposedTakeout(req, res) {
 /**
  * Get pending approvals for IT Lead
  * GET /api/v1/approvals/pending
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getPendingApprovals(req, res) {
   try {
@@ -228,11 +173,7 @@ async function getPendingApprovals(req, res) {
       functionId
     });
 
-    res.json({
-      success: true,
-      approvals
-    });
-
+    return sendSuccess(res, approvals);
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal memuat pending approvals');
   }
@@ -241,17 +182,12 @@ async function getPendingApprovals(req, res) {
 /**
  * Get respondents list for admin review
  * GET /api/v1/approvals/respondents
- * @param {Object} req
- * @param {Object} res
  */
 async function getRespondents(req, res) {
   try {
     const { surveyId, duplicateFilter, applicationId, departmentId } = req.query;
     if (!surveyId) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Survey ID is required'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Survey ID is required' });
     }
 
     const respondents = await approvalService.getRespondents({
@@ -263,10 +199,7 @@ async function getRespondents(req, res) {
       requesterRole: req.user?.role
     });
 
-    res.json({
-      success: true,
-      respondents
-    });
+    return sendSuccess(res, respondents);
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while fetching respondents');
   }
@@ -278,18 +211,11 @@ async function approveInitialResponses(req, res) {
     const approvedBy = req.user?.userId;
 
     if (!Array.isArray(responseIds) || responseIds.length === 0) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Minimal satu response wajib dipilih'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Minimal satu response wajib dipilih' });
     }
 
     const result = await approvalService.approveInitialResponses(responseIds, approvedBy, reason || null, req.user?.role);
-    res.json({
-      success: true,
-      message: 'Response berhasil di-approve oleh Admin Event',
-      data: result
-    });
+    return sendSuccess(res, result, { meta: { message: 'Response berhasil di-approve oleh Admin Event' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while approving responses');
   }
@@ -301,18 +227,11 @@ async function rejectInitialResponses(req, res) {
     const rejectedBy = req.user?.userId;
 
     if (!Array.isArray(responseIds) || responseIds.length === 0 || !reason) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Minimal satu response dan alasan reject wajib diisi'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Minimal satu response dan alasan reject wajib diisi' });
     }
 
     const result = await approvalService.rejectInitialResponses(responseIds, rejectedBy, reason, req.user?.role);
-    res.json({
-      success: true,
-      message: 'Response berhasil di-reject oleh Admin Event',
-      data: result
-    });
+    return sendSuccess(res, result, { meta: { message: 'Response berhasil di-reject oleh Admin Event' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while rejecting responses');
   }
@@ -324,18 +243,11 @@ async function approveFinalResponses(req, res) {
     const approvedBy = req.user?.userId;
 
     if (!Array.isArray(responseIds) || responseIds.length === 0) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Minimal satu response wajib dipilih'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Minimal satu response wajib dipilih' });
     }
 
     const result = await approvalService.approveFinalResponses(responseIds, approvedBy, reason || null, req.user?.role);
-    res.json({
-      success: true,
-      message: 'Response berhasil di-approve final oleh IT Lead',
-      data: result
-    });
+    return sendSuccess(res, result, { meta: { message: 'Response berhasil di-approve final oleh IT Lead' } });
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while approving final responses');
   }
@@ -344,8 +256,6 @@ async function approveFinalResponses(req, res) {
 /**
  * Get comments list for best comment selection
  * GET /api/v1/approvals/comments
- * @param {Object} req
- * @param {Object} res
  */
 async function getCommentsForSelection(req, res) {
   try {
@@ -357,10 +267,7 @@ async function getCommentsForSelection(req, res) {
       applicationId
     });
 
-    res.json({
-      success: true,
-      comments
-    });
+    return sendSuccess(res, comments);
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal memuat daftar komentar');
   }
@@ -369,8 +276,6 @@ async function getCommentsForSelection(req, res) {
 /**
  * Get proposed takeouts list
  * GET /api/v1/approvals/proposed-takeouts
- * @param {Object} req
- * @param {Object} res
  */
 async function getProposedTakeouts(req, res) {
   try {
@@ -385,10 +290,7 @@ async function getProposedTakeouts(req, res) {
       requesterRole: req.user?.role
     });
 
-    res.json({
-      success: true,
-      takeouts
-    });
+    return sendSuccess(res, takeouts);
   } catch (error) {
     return handleApprovalError(res, error, 'An error occurred while fetching proposed takeouts');
   }
@@ -397,18 +299,13 @@ async function getProposedTakeouts(req, res) {
 /**
  * Mark as best comment
  * POST /api/v1/approvals/best-comments
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function markAsBestComment(req, res) {
   try {
     const { responseId, questionId } = req.body;
 
     if (!responseId || !questionId) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Response ID dan Question ID wajib diisi'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Response ID dan Question ID wajib diisi' });
     }
 
     const result = await approvalService.markAsBestComment(
@@ -418,17 +315,10 @@ async function markAsBestComment(req, res) {
     );
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Mark best comment failed',
-        message: 'Gagal menyimpan best comment'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal menyimpan best comment' });
     }
 
-    res.json({
-      success: true,
-      message: 'Best comment berhasil disimpan'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Best comment berhasil disimpan' } });
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal menyimpan best comment');
   }
@@ -437,18 +327,13 @@ async function markAsBestComment(req, res) {
 /**
  * Unmark best comment
  * DELETE /api/v1/approvals/best-comments
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function unmarkBestComment(req, res) {
   try {
     const { responseId, questionId } = req.body;
 
     if (!responseId || !questionId) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Response ID dan Question ID wajib diisi'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Response ID dan Question ID wajib diisi' });
     }
 
     const result = await approvalService.unmarkBestComment(
@@ -458,17 +343,10 @@ async function unmarkBestComment(req, res) {
     );
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Unmark best comment failed',
-        message: 'Gagal menghapus best comment'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal menghapus best comment' });
     }
 
-    res.json({
-      success: true,
-      message: 'Best comment berhasil dihapus'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Best comment berhasil dihapus' } });
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal menghapus best comment');
   }
@@ -477,8 +355,6 @@ async function unmarkBestComment(req, res) {
 /**
  * Get best comments
  * GET /api/v1/approvals/best-comments
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getBestComments(req, res) {
   try {
@@ -490,11 +366,7 @@ async function getBestComments(req, res) {
 
     const comments = await approvalService.getBestComments(filter);
 
-    res.json({
-      success: true,
-      comments
-    });
-
+    return sendSuccess(res, comments);
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal memuat best comments');
   }
@@ -503,8 +375,6 @@ async function getBestComments(req, res) {
 /**
  * Submit best comment feedback
  * POST /api/v1/approvals/best-comments/feedback
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function submitBestCommentFeedback(req, res) {
   try {
@@ -512,10 +382,7 @@ async function submitBestCommentFeedback(req, res) {
     const itLeadUserId = req.user?.userId;
 
     if (!feedbackText || !String(feedbackText).trim()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Teks feedback wajib diisi'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Teks feedback wajib diisi' });
     }
 
     const feedback = {
@@ -529,18 +396,10 @@ async function submitBestCommentFeedback(req, res) {
     const result = await approvalService.submitBestCommentFeedback(feedback);
 
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Feedback submission failed',
-        message: 'Gagal mengirim feedback'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal mengirim feedback' });
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Feedback berhasil dikirim',
-      feedback: result
-    });
-
+    return sendCreated(res, result, { meta: { message: 'Feedback berhasil dikirim' } });
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal mengirim feedback best comment');
   }
@@ -549,8 +408,6 @@ async function submitBestCommentFeedback(req, res) {
 /**
  * Get best comments with IT Lead feedback
  * GET /api/v1/approvals/best-comments-with-feedback
- * @param {Object} req
- * @param {Object} res
  */
 async function getBestCommentsWithFeedback(req, res) {
   try {
@@ -561,10 +418,7 @@ async function getBestCommentsWithFeedback(req, res) {
       departmentId
     });
 
-    res.json({
-      success: true,
-      comments
-    });
+    return sendSuccess(res, comments);
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal memuat best comments dengan feedback');
   }
@@ -573,19 +427,12 @@ async function getBestCommentsWithFeedback(req, res) {
 /**
  * Get approval statistics
  * GET /api/v1/approvals/statistics/:surveyId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getApprovalStatistics(req, res) {
   try {
-    const surveyId = req.params.surveyId;
-    const statistics = await approvalService.getApprovalStatistics(surveyId);
+    const statistics = await approvalService.getApprovalStatistics(req.params.surveyId);
 
-    res.json({
-      success: true,
-      statistics
-    });
-
+    return sendSuccess(res, statistics);
   } catch (error) {
     return handleApprovalError(res, error, 'Gagal memuat statistik approval');
   }
