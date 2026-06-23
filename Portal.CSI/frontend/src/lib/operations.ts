@@ -1,6 +1,7 @@
 "use client";
 
 import { getAccessToken, redirectToLogin } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/api-client";
 
 const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
 const EVENTS_ENDPOINT = `${API_BASE_PATH}/events`;
@@ -35,10 +36,10 @@ export async function generateQRCode(surveyId: string): Promise<{ success: boole
       return { success: false, message: "Sesi telah berakhir, silakan login kembali" };
     }
     if (!response.ok || !payload?.success) {
-      return { success: false, message: payload?.message || "Gagal generate QR code" };
+      return { success: false, message: getApiErrorMessage(payload, "Gagal generate QR code") };
     }
 
-    const qrCodeUrl = payload.qrCodeDataUrl || payload.qrCodeUrl;
+    const qrCodeUrl = payload.data?.qrCodeDataUrl || payload.data?.qrCodeUrl;
     if (!qrCodeUrl) {
       return { success: false, message: "QR code tidak tersedia dari server" };
     }
@@ -66,10 +67,10 @@ export async function getScheduledOperations(surveyId: string): Promise<{ succes
       return { success: false, message: "Sesi telah berakhir, silakan login kembali" };
     }
     if (!response.ok || !payload?.success) {
-      return { success: false, message: payload?.message || "Gagal memuat scheduled operations" };
+      return { success: false, message: getApiErrorMessage(payload, "Gagal memuat scheduled operations") };
     }
 
-    const rawOperations = Array.isArray(payload?.operations) ? payload.operations : [];
+    const rawOperations = Array.isArray(payload?.data) ? payload.data : [];
     const normalized = rawOperations.map((item: Record<string, unknown>) => ({
       operationId: Number(item.operationId || item.OperationId || 0),
       operationType: String(item.operationType || item.OperationType || ""),
@@ -101,7 +102,7 @@ export async function cancelScheduledOperation(_surveyId: string, operationId: n
       return { success: false, message: "Sesi telah berakhir, silakan login kembali" };
     }
     if (!response.ok || !payload?.success) {
-      return { success: false, message: payload?.message || "Gagal cancel operation" };
+      return { success: false, message: getApiErrorMessage(payload, "Gagal cancel operation") };
     }
 
     return { success: true };
@@ -127,10 +128,10 @@ export async function retryScheduledOperation(operationId: number): Promise<{ su
       return { success: false, message: "Sesi telah berakhir, silakan login kembali" };
     }
     if (!response.ok || !payload?.success) {
-      return { success: false, message: payload?.message || "Gagal retry operation" };
+      return { success: false, message: getApiErrorMessage(payload, "Gagal retry operation") };
     }
 
-    return { success: true, message: payload?.message };
+    return { success: true, message: payload?.meta?.message };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }

@@ -2,6 +2,7 @@
 
 import { getAccessToken } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
+import { getApiErrorMessage } from "@/lib/api-client";
 
 const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
 
@@ -66,29 +67,26 @@ export async function sendStandaloneEmailBlast(input: SendEmailBlastInput): Prom
     const payload = (await response.json().catch(() => null)) as
       | {
           success?: boolean;
-          message?: string;
-          error?: string;
-          total?: number;
-          sent?: number;
-          failed?: number;
-          errors?: Array<{ email: string; error: string }>;
+          meta?: { message?: string };
+          data?: { total?: number; sent?: number; failed?: number; errors?: Array<{ email: string; error: string }> };
+          error?: unknown;
         }
       | null;
 
     if (!response.ok || payload?.success !== true) {
       return {
         success: false,
-        message: payload?.message || payload?.error || "Gagal mengirim email blast",
+        message: getApiErrorMessage(payload, "Gagal mengirim email blast"),
       };
     }
 
     return {
       success: true,
-      message: payload.message || "Email blast berhasil dikirim",
-      total: payload.total,
-      sent: payload.sent,
-      failed: payload.failed,
-      errors: payload.errors,
+      message: payload.meta?.message || "Email blast berhasil dikirim",
+      total: payload.data?.total,
+      sent: payload.data?.sent,
+      failed: payload.data?.failed,
+      errors: payload.data?.errors,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
@@ -165,20 +163,20 @@ export async function scheduleStandaloneEmailBlast(input: ScheduleStandaloneBlas
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; message?: string; error?: string; operation?: unknown }
+      | { success?: boolean; meta?: { message?: string }; data?: unknown; error?: unknown }
       | null;
 
     if (!response.ok || payload?.success !== true) {
       return {
         success: false,
-        message: payload?.message || payload?.error || "Gagal menjadwalkan email blast",
+        message: getApiErrorMessage(payload, "Gagal menjadwalkan email blast"),
       };
     }
 
     return {
       success: true,
-      message: payload.message || "Email blast berhasil dijadwalkan",
-      operation: payload.operation as ScheduleStandaloneBlastInput extends never ? never : {
+      message: payload.meta?.message || "Email blast berhasil dijadwalkan",
+      operation: payload.data as ScheduleStandaloneBlastInput extends never ? never : {
         operationId: number;
         operationType: string;
         frequency: string;
@@ -263,21 +261,21 @@ export async function sendSurveyBlast(input: SendSurveyBlastInput): Promise<Blas
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; message?: string; error?: string; total?: number; sent?: number; failed?: number; skipped?: number; errors?: Array<{ email: string; error: string }> }
+      | { success?: boolean; meta?: { message?: string }; data?: { total?: number; sent?: number; failed?: number; skipped?: number; errors?: Array<{ email: string; error: string }> }; error?: unknown }
       | null;
 
     if (!response.ok || payload?.success !== true) {
-      return { success: false, message: payload?.message || payload?.error || "Gagal mengirim survey blast" };
+      return { success: false, message: getApiErrorMessage(payload, "Gagal mengirim survey blast") };
     }
 
     return {
       success: true,
-      message: payload.message || "Survey blast berhasil dikirim",
-      total: payload.total,
-      sent: payload.sent,
-      failed: payload.failed,
-      skipped: payload.skipped,
-      errors: payload.errors,
+      message: payload.meta?.message || "Survey blast berhasil dikirim",
+      total: payload.data?.total,
+      sent: payload.data?.sent,
+      failed: payload.data?.failed,
+      skipped: payload.data?.skipped,
+      errors: payload.data?.errors,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
@@ -312,21 +310,21 @@ export async function sendSurveyReminder(input: SendSurveyReminderInput): Promis
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; message?: string; error?: string; total?: number; sent?: number; failed?: number; skipped?: number; errors?: Array<{ email: string; error: string }> }
+      | { success?: boolean; meta?: { message?: string }; data?: { total?: number; sent?: number; failed?: number; skipped?: number; errors?: Array<{ email: string; error: string }> }; error?: unknown }
       | null;
 
     if (!response.ok || payload?.success !== true) {
-      return { success: false, message: payload?.message || payload?.error || "Gagal mengirim reminder" };
+      return { success: false, message: getApiErrorMessage(payload, "Gagal mengirim reminder") };
     }
 
     return {
       success: true,
-      message: payload.message || "Reminder berhasil dikirim",
-      total: payload.total,
-      sent: payload.sent,
-      failed: payload.failed,
-      skipped: payload.skipped,
-      errors: payload.errors,
+      message: payload.meta?.message || "Reminder berhasil dikirim",
+      total: payload.data?.total,
+      sent: payload.data?.sent,
+      failed: payload.data?.failed,
+      skipped: payload.data?.skipped,
+      errors: payload.data?.errors,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };

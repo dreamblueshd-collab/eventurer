@@ -35,6 +35,11 @@ export type { ApiResult, PaginatedEvents, PaginatedParticipants };
 function getErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const data = payload as Record<string, unknown>;
+  const err = data.error;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+  }
   if (typeof data.message === "string") return data.message;
   if (typeof data.error === "string") return data.error;
   return fallback;
@@ -69,7 +74,7 @@ async function authFetch<T>(
       return { success: false, message: getErrorMessage(payload, fallbackMessage) };
     }
 
-    return { success: true, data: map(payload) };
+    return { success: true, data: map((payload as { data?: unknown } | null)?.data) };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -131,7 +136,7 @@ async function authFetchFormData<T>(
       return { success: false, message: getErrorMessage(payload, fallbackMessage) };
     }
 
-    return { success: true, data: map(payload) };
+    return { success: true, data: map((payload as { data?: unknown } | null)?.data) };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -180,7 +185,7 @@ export async function fetchDoorprizeEventById(
     `/doorprize/events/${eventId}`,
     { method: "GET" },
     "Gagal memuat detail event",
-    (payload) => (payload as { event: DoorprizeEvent }).event,
+    (payload) => payload as DoorprizeEvent,
   );
 }
 
@@ -194,7 +199,7 @@ export async function createDoorprizeEvent(input: {
     "/doorprize/events",
     { method: "POST", body: JSON.stringify(input) },
     "Gagal membuat event doorprize",
-    (payload) => (payload as { event: DoorprizeEvent }).event,
+    (payload) => payload as DoorprizeEvent,
   );
 }
 
@@ -205,7 +210,7 @@ export async function createDoorprizeEventWithImage(
     "/doorprize/events",
     formData,
     "Gagal membuat event doorprize",
-    (payload) => (payload as { event: DoorprizeEvent }).event,
+    (payload) => payload as DoorprizeEvent,
   );
 }
 
@@ -217,7 +222,7 @@ export async function updateDoorprizeEvent(
     `/doorprize/events/${eventId}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui event doorprize",
-    (payload) => (payload as { event: DoorprizeEvent }).event,
+    (payload) => payload as DoorprizeEvent,
   );
 }
 
@@ -244,7 +249,7 @@ export async function updateDoorprizeEventWithImage(
       return { success: false, message: getErrorMessage(payload, "Gagal memperbarui event") };
     }
 
-    return { success: true, data: (payload as { event: DoorprizeEvent }).event };
+    return { success: true, data: (payload as { data: DoorprizeEvent }).data };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -272,7 +277,7 @@ export async function fetchGifts(
     `/doorprize/events/${eventId}/gifts`,
     { method: "GET" },
     "Gagal memuat daftar hadiah",
-    (payload) => (payload as { gifts: DoorprizeGift[] }).gifts || [],
+    (payload) => (payload as DoorprizeGift[]) || [],
   );
 }
 
@@ -284,7 +289,7 @@ export async function createGift(
     `/doorprize/events/${eventId}/gifts`,
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah hadiah",
-    (payload) => (payload as { gift: DoorprizeGift }).gift,
+    (payload) => payload as DoorprizeGift,
   );
 }
 
@@ -296,7 +301,7 @@ export async function createGiftWithImage(
     `/doorprize/events/${eventId}/gifts`,
     formData,
     "Gagal menambah hadiah",
-    (payload) => (payload as { gift: DoorprizeGift }).gift,
+    (payload) => payload as DoorprizeGift,
   );
 }
 
@@ -308,7 +313,7 @@ export async function updateGift(
     `/doorprize/gifts/${giftId}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui hadiah",
-    (payload) => (payload as { gift: DoorprizeGift }).gift,
+    (payload) => payload as DoorprizeGift,
   );
 }
 
@@ -335,7 +340,7 @@ export async function updateGiftWithImage(
       return { success: false, message: getErrorMessage(payload, "Gagal memperbarui hadiah") };
     }
 
-    return { success: true, data: (payload as { gift: DoorprizeGift }).gift };
+    return { success: true, data: (payload as { data: DoorprizeGift }).data };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -394,7 +399,7 @@ export async function createParticipant(
     `/doorprize/events/${eventId}/participants`,
     { method: "POST", body: JSON.stringify(input) },
     "Gagal menambah peserta",
-    (payload) => (payload as { participant: DoorprizeParticipant }).participant,
+    (payload) => payload as DoorprizeParticipant,
   );
 }
 
@@ -406,7 +411,7 @@ export async function createParticipantWithImage(
     `/doorprize/events/${eventId}/participants`,
     formData,
     "Gagal menambah peserta",
-    (payload) => (payload as { participant: DoorprizeParticipant }).participant,
+    (payload) => payload as DoorprizeParticipant,
   );
 }
 
@@ -418,7 +423,7 @@ export async function updateParticipant(
     `/doorprize/participants/${participantId}`,
     { method: "PUT", body: JSON.stringify(input) },
     "Gagal memperbarui peserta",
-    (payload) => (payload as { participant: DoorprizeParticipant }).participant,
+    (payload) => payload as DoorprizeParticipant,
   );
 }
 
@@ -445,7 +450,7 @@ export async function updateParticipantWithImage(
       return { success: false, message: getErrorMessage(payload, "Gagal memperbarui peserta") };
     }
 
-    return { success: true, data: (payload as { participant: DoorprizeParticipant }).participant };
+    return { success: true, data: (payload as { data: DoorprizeParticipant }).data };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -596,7 +601,7 @@ export async function fetchPublicResults(
       return { success: false, message: getErrorMessage(payload, "Gagal memuat hasil undian") };
     }
 
-    const p = payload as Record<string, unknown>;
+    const p = ((payload as { data?: Record<string, unknown> } | null)?.data) || {};
     return {
       success: true,
       data: {
@@ -624,7 +629,7 @@ export async function fetchPublicEventInfo(
       return { success: false, message: getErrorMessage(payload, "Gagal memuat info event") };
     }
 
-    const p = payload as Record<string, unknown>;
+    const p = ((payload as { data?: Record<string, unknown> } | null)?.data) || {};
     return {
       success: true,
       data: {

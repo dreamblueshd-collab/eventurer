@@ -76,6 +76,11 @@ export interface TakeoutComparisonRow {
 function extractError(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const data = payload as Record<string, unknown>;
+  const err = data.error;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+  }
   if (typeof data.message === "string" && data.message.trim()) return data.message;
   if (typeof data.error === "string" && data.error.trim()) return data.error;
   return fallback;
@@ -111,18 +116,18 @@ export async function fetchReportSelectionList(): Promise<{
       cache: "no-store",
     });
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; surveys?: ReportSelectionItem[]; message?: string; error?: string }
+      | { success?: boolean; data?: ReportSelectionItem[]; message?: string; error?: unknown }
       | null;
 
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, surveys: [], message: "Sesi telah berakhir, silakan login kembali" };
     }
-    if (!response.ok || payload?.success !== true || !Array.isArray(payload.surveys)) {
+    if (!response.ok || payload?.success !== true || !Array.isArray(payload.data)) {
       return { success: false, surveys: [], message: extractError(payload, "Gagal memuat data report") };
     }
 
-    return { success: true, surveys: payload.surveys };
+    return { success: true, surveys: payload.data };
   } catch {
     return { success: false, surveys: [], message: "Gagal terhubung ke server" };
   }
@@ -157,18 +162,18 @@ export async function generateSurveyReport(input: {
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; report?: GeneratedReport; message?: string; error?: string }
+      | { success?: boolean; data?: GeneratedReport; message?: string; error?: unknown }
       | null;
 
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, message: "Sesi telah berakhir, silakan login kembali" };
     }
-    if (!response.ok || payload?.success !== true || !payload.report) {
+    if (!response.ok || payload?.success !== true || !payload.data) {
       return { success: false, message: extractError(payload, "Gagal generate report") };
     }
 
-    return { success: true, report: payload.report };
+    return { success: true, report: payload.data };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -203,18 +208,18 @@ export async function fetchSurveyReport(input: {
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; report?: GeneratedReport; message?: string; error?: string }
+      | { success?: boolean; data?: GeneratedReport; message?: string; error?: unknown }
       | null;
 
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, message: "Sesi telah berakhir, silakan login kembali" };
     }
-    if (!response.ok || payload?.success !== true || !payload.report) {
+    if (!response.ok || payload?.success !== true || !payload.data) {
       return { success: false, message: extractError(payload, "Gagal memuat report") };
     }
 
-    return { success: true, report: payload.report };
+    return { success: true, report: payload.data };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
   }
@@ -237,17 +242,17 @@ export async function fetchTakeoutComparison(input: {
       cache: "no-store",
     });
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; comparison?: TakeoutComparisonRow[]; message?: string; error?: string }
+      | { success?: boolean; data?: TakeoutComparisonRow[]; message?: string; error?: unknown }
       | null;
 
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, comparison: [], message: "Sesi telah berakhir, silakan login kembali" };
     }
-    if (!response.ok || payload?.success !== true || !Array.isArray(payload.comparison)) {
+    if (!response.ok || payload?.success !== true || !Array.isArray(payload.data)) {
       return { success: false, comparison: [], message: extractError(payload, "Gagal memuat data takeout comparison") };
     }
-    return { success: true, comparison: payload.comparison };
+    return { success: true, comparison: payload.data };
   } catch {
     return { success: false, comparison: [], message: "Gagal terhubung ke server" };
   }
