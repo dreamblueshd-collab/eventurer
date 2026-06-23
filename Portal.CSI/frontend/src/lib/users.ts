@@ -1,7 +1,8 @@
 "use client";
 
 import { getAccessToken, redirectToLogin } from "@/lib/auth";
-import type { UserListItem, UsersResponse } from "@/types/user";
+import { getApiErrorMessage } from "@/lib/api-client";
+import type { UserListItem } from "@/types/user";
 
 const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH || "/api/v1";
 
@@ -47,15 +48,7 @@ export type UpdateUserInput = {
 };
 
 function getErrorMessage(payload: unknown, fallback: string): string {
-  if (!payload || typeof payload !== "object") return fallback;
-  const maybePayload = payload as Record<string, unknown>;
-  if (Array.isArray(maybePayload.details) && maybePayload.details.length > 0) {
-    const first = maybePayload.details[0] as Record<string, unknown>;
-    if (typeof first?.msg === "string" && first.msg.trim()) return first.msg;
-  }
-  if (typeof maybePayload.message === "string") return maybePayload.message;
-  if (typeof maybePayload.error === "string") return maybePayload.error;
-  return fallback;
+  return getApiErrorMessage(payload, fallback);
 }
 
 export async function searchAdminEventUsers(search: string): Promise<{
@@ -81,7 +74,7 @@ export async function searchAdminEventUsers(search: string): Promise<{
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; users?: AdminEventUser[]; message?: string; error?: string }
+      | { success?: boolean; data?: AdminEventUser[]; message?: string; error?: unknown }
       | null;
 
     if (response.status === 401) {
@@ -99,7 +92,7 @@ export async function searchAdminEventUsers(search: string): Promise<{
       };
     }
 
-    return { success: true, users: payload.users || [] };
+    return { success: true, users: payload.data || [] };
   } catch {
     return { success: false, users: [], message: "Gagal terhubung ke server" };
   }
@@ -125,7 +118,7 @@ export async function fetchUsers(search: string): Promise<{
       cache: "no-store",
     });
 
-    const payload = (await response.json().catch(() => null)) as UsersResponse | null;
+    const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: UserListItem[] } | null;
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, users: [], message: "Sesi telah berakhir, silakan login kembali" };
@@ -138,7 +131,7 @@ export async function fetchUsers(search: string): Promise<{
       };
     }
 
-    return { success: true, users: payload.users || [] };
+    return { success: true, users: payload.data || [] };
   } catch {
     return { success: false, users: [], message: "Gagal terhubung ke server" };
   }
@@ -174,7 +167,7 @@ export async function fetchUsersWithFilters(input: {
       cache: "no-store",
     });
 
-    const payload = (await response.json().catch(() => null)) as UsersResponse | null;
+    const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: UserListItem[] } | null;
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, users: [], message: "Sesi telah berakhir, silakan login kembali" };
@@ -187,7 +180,7 @@ export async function fetchUsersWithFilters(input: {
       };
     }
 
-    return { success: true, users: payload.users || [] };
+    return { success: true, users: payload.data || [] };
   } catch {
     return { success: false, users: [], message: "Gagal terhubung ke server" };
   }
@@ -218,7 +211,7 @@ export async function fetchITLeadUsers(input?: {
       cache: "no-store",
     });
 
-    const payload = (await response.json().catch(() => null)) as UsersResponse | null;
+    const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: UserListItem[] } | null;
     if (response.status === 401) {
       redirectToLogin({ reason: "unauthorized" });
       return { success: false, users: [], message: "Sesi telah berakhir, silakan login kembali" };
@@ -231,7 +224,7 @@ export async function fetchITLeadUsers(input?: {
       };
     }
 
-    return { success: true, users: payload.users || [] };
+    return { success: true, users: payload.data || [] };
   } catch {
     return { success: false, users: [], message: "Gagal terhubung ke server" };
   }
@@ -432,25 +425,31 @@ export async function uploadUserFile(file: File): Promise<{
     });
 
     const payload = (await response.json().catch(() => null)) as
-      | { success?: boolean; message?: string; error?: string; imported?: number; failed?: number; errors?: Array<{ row: number; data: unknown; errors: string[] }> }
+      | {
+          success?: boolean;
+          meta?: { message?: string };
+          data?: { imported?: number; failed?: number; errors?: Array<{ row: number; data: unknown; errors: string[] }> };
+          error?: { message?: string; details?: Array<{ row: number; data: unknown; errors: string[] }> };
+        }
       | null;
 
     if (!response.ok || !payload?.success) {
-      return { 
-        success: false, 
+      const failureErrors = payload?.error?.details;
+      return {
+        success: false,
         message: getErrorMessage(payload, "Gagal upload file"),
-        imported: payload?.imported,
-        failed: payload?.failed,
-        errors: payload?.errors
+        imported: payload?.data?.imported,
+        failed: payload?.data?.failed,
+        errors: Array.isArray(failureErrors) ? failureErrors : undefined,
       };
     }
 
     return {
       success: true,
-      message: payload.message,
-      imported: payload.imported,
-      failed: payload.failed,
-      errors: payload.errors,
+      message: payload.meta?.message,
+      imported: payload.data?.imported,
+      failed: payload.data?.failed,
+      errors: payload.data?.errors,
     };
   } catch {
     return { success: false, message: "Gagal terhubung ke server" };
