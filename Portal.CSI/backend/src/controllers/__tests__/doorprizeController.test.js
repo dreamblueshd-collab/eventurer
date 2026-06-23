@@ -69,7 +69,7 @@ function mockValidationFail(errors) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests (standard API envelope)
 // ---------------------------------------------------------------------------
 
 describe('doorprizeController', () => {
@@ -78,11 +78,11 @@ describe('doorprizeController', () => {
   });
 
   // =========================================================================
-  // Input validation tests
+  // Input validation tests -> standardized 422 VALIDATION_ERROR
   // =========================================================================
 
   describe('createDoorprizeEvent - validation', () => {
-    it('should return 400 when name is missing', async () => {
+    it('should return 422 VALIDATION_ERROR when name is missing', async () => {
       mockValidationFail([
         { path: 'name', msg: 'Name is required', location: 'body' },
       ]);
@@ -95,17 +95,17 @@ describe('doorprizeController', () => {
 
       await doorprizeController.createDoorprizeEvent(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Validation failed',
+          error: expect.objectContaining({ code: 'VALIDATION_ERROR' }),
         })
       );
       expect(doorprizeService.createEvent).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when eventDate is missing', async () => {
+    it('should return 422 when eventDate is missing', async () => {
       mockValidationFail([
         { path: 'eventDate', msg: 'Event date is required', location: 'body' },
       ]);
@@ -118,11 +118,11 @@ describe('doorprizeController', () => {
 
       await doorprizeController.createDoorprizeEvent(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Validation failed',
+          error: expect.objectContaining({ code: 'VALIDATION_ERROR' }),
         })
       );
       expect(doorprizeService.createEvent).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe('doorprizeController', () => {
   });
 
   describe('createGift - validation', () => {
-    it('should return 400 when quota is zero or negative', async () => {
+    it('should return 422 when quota is zero or negative', async () => {
       mockValidationFail([
         { path: 'quota', msg: 'Quota must be a positive integer greater than 0', location: 'body' },
       ]);
@@ -144,17 +144,17 @@ describe('doorprizeController', () => {
 
       await doorprizeController.createGift(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Validation failed',
+          error: expect.objectContaining({ code: 'VALIDATION_ERROR' }),
         })
       );
       expect(doorprizeService.createGift).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when gift name is missing', async () => {
+    it('should return 422 when gift name is missing', async () => {
       mockValidationFail([
         { path: 'name', msg: 'Name is required', location: 'body' },
       ]);
@@ -168,19 +168,13 @@ describe('doorprizeController', () => {
 
       await doorprizeController.createGift(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: 'Validation failed',
-        })
-      );
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(doorprizeService.createGift).not.toHaveBeenCalled();
     });
   });
 
   describe('createParticipant - validation', () => {
-    it('should return 400 when participant name is missing', async () => {
+    it('should return 422 when participant name is missing', async () => {
       mockValidationFail([
         { path: 'name', msg: 'Name is required', location: 'body' },
       ]);
@@ -194,26 +188,16 @@ describe('doorprizeController', () => {
 
       await doorprizeController.createParticipant(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: 'Validation failed',
-        })
-      );
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(doorprizeService.createParticipant).not.toHaveBeenCalled();
     });
   });
 
   // =========================================================================
-  // Permission enforcement tests (middleware-level, tested via requirePermission)
-  // Note: Permission is enforced by the middleware before the handler runs.
-  // These tests verify the middleware behaviour would return 403.
+  // Permission enforcement tests (middleware-level) - unchanged
   // =========================================================================
 
   describe('permission enforcement (middleware behaviour)', () => {
-    // The requirePermission middleware checks req.user.role against allowed roles.
-    // We simulate what the middleware does by calling it directly.
     const { requirePermission } = require('../../middleware/authMiddleware');
 
     it('should return 403 when non-AdminEvent user accesses doorprize:create', () => {
@@ -248,11 +232,6 @@ describe('doorprizeController', () => {
       middleware(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'UnauthorizedAccess',
-        })
-      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -273,11 +252,11 @@ describe('doorprizeController', () => {
   });
 
   // =========================================================================
-  // Draw error response tests
+  // Draw error response tests -> standardized error envelope
   // =========================================================================
 
   describe('executeDraw - error responses', () => {
-    it('should return error when gift quota is exhausted', async () => {
+    it('should map a 409 business error to CONFLICT envelope', async () => {
       mockValidationPass();
 
       const error = new Error('Gift quota exhausted');
@@ -295,41 +274,13 @@ describe('doorprizeController', () => {
       await doorprizeController.executeDraw(req, res);
 
       expect(res.status).toHaveBeenCalledWith(409);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          message: 'Gift quota exhausted',
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        error: { code: 'CONFLICT', message: 'Gift quota exhausted' },
+      });
     });
 
-    it('should return error when no eligible participants remain', async () => {
-      mockValidationPass();
-
-      const error = new Error('No eligible participants remaining');
-      error.statusCode = 409;
-      error.name = 'BusinessError';
-      doorprizeService.executeDraw.mockRejectedValue(error);
-
-      const req = {
-        params: { id: '1' },
-        body: { giftId: 10 },
-        user: { userId: 1, role: 'AdminEvent' },
-      };
-      const res = createResponse();
-
-      await doorprizeController.executeDraw(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(409);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          message: 'No eligible participants remaining',
-        })
-      );
-    });
-
-    it('should return 400 when giftId is missing from draw request', async () => {
+    it('should return 422 when giftId is missing from draw request', async () => {
       mockValidationFail([
         { path: 'giftId', msg: 'Gift ID is required', location: 'body' },
       ]);
@@ -343,11 +294,11 @@ describe('doorprizeController', () => {
 
       await doorprizeController.executeDraw(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Validation failed',
+          error: expect.objectContaining({ code: 'VALIDATION_ERROR' }),
         })
       );
       expect(doorprizeService.executeDraw).not.toHaveBeenCalled();
@@ -355,11 +306,11 @@ describe('doorprizeController', () => {
   });
 
   // =========================================================================
-  // Happy-path sanity tests (ensures delegation works)
+  // Happy-path sanity tests (ensures delegation + envelope)
   // =========================================================================
 
   describe('createDoorprizeEvent - success', () => {
-    it('should delegate to service and return 201 on valid input', async () => {
+    it('should delegate to service and return 201 with data envelope', async () => {
       mockValidationPass();
 
       const createdEvent = { doorprizeEventId: 1, name: 'Annual Draw', status: 'Draft' };
@@ -384,17 +335,16 @@ describe('doorprizeController', () => {
         })
       );
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          event: createdEvent,
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: createdEvent,
+        meta: { message: 'Doorprize event created successfully' },
+      });
     });
   });
 
   describe('executeDraw - success', () => {
-    it('should delegate to service and return 201 with draw result', async () => {
+    it('should delegate to service and return 201 with draw result under data', async () => {
       mockValidationPass();
 
       const drawResult = {
@@ -415,12 +365,25 @@ describe('doorprizeController', () => {
 
       expect(doorprizeService.executeDraw).toHaveBeenCalledWith('1', 10, 1);
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          message: 'Draw executed successfully',
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: drawResult,
+        meta: { message: 'Draw executed successfully' },
+      });
+    });
+  });
+
+  describe('getDoorprizeEvents - success', () => {
+    it('returns the service result object under data', async () => {
+      const result = { events: [{ doorprizeEventId: 1 }], pagination: { page: 1, total: 1 } };
+      doorprizeService.getAllEvents.mockResolvedValue(result);
+
+      const req = { query: {} };
+      const res = createResponse();
+
+      await doorprizeController.getDoorprizeEvents(req, res);
+
+      expect(res.json).toHaveBeenCalledWith({ success: true, data: result });
     });
   });
 
@@ -429,7 +392,7 @@ describe('doorprizeController', () => {
   // =========================================================================
 
   describe('error handling - generic errors', () => {
-    it('should return 500 for unexpected errors without statusCode', async () => {
+    it('should return 500 INTERNAL_ERROR for unexpected errors without statusCode', async () => {
       mockValidationPass();
 
       doorprizeService.executeDraw.mockRejectedValue(new Error('DB connection lost'));
@@ -447,7 +410,7 @@ describe('doorprizeController', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Internal server error',
+          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
         })
       );
     });

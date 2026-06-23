@@ -1,9 +1,11 @@
-const { body, param, query, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const doorprizeService = require('../services/doorprizeService');
 const logger = require('../config/logger');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 // ---------------------------------------------------------------------------
 // Multer configuration for doorprize image uploads
@@ -255,27 +257,6 @@ const executeDrawValidation = [
 ];
 
 // ---------------------------------------------------------------------------
-// Helper: Handle service errors with consistent status codes
-// ---------------------------------------------------------------------------
-
-function handleServiceError(res, error, defaultMessage) {
-  if (error?.statusCode) {
-    return res.status(error.statusCode).json({
-      success: false,
-      error: error.name || 'Request failed',
-      message: error.message
-    });
-  }
-
-  logger.error(defaultMessage, error);
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error',
-    message: defaultMessage
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Event handlers
 // ---------------------------------------------------------------------------
 
@@ -288,12 +269,9 @@ async function getDoorprizeEvents(req, res) {
     const { page, limit, status } = req.query;
     const result = await doorprizeService.getAllEvents({ page, limit, status });
 
-    res.json({
-      success: true,
-      ...result
-    });
+    return sendSuccess(res, result);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching doorprize events');
+    return handleControllerError(res, error, 'An error occurred while fetching doorprize events');
   }
 }
 
@@ -305,29 +283,18 @@ async function getDoorprizeEventById(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const event = await doorprizeService.getEventById(req.params.id);
 
     if (!event) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'Doorprize event not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Doorprize event not found' });
     }
 
-    res.json({
-      success: true,
-      event
-    });
+    return sendSuccess(res, event);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching doorprize event');
+    return handleControllerError(res, error, 'An error occurred while fetching doorprize event');
   }
 }
 
@@ -339,11 +306,7 @@ async function createDoorprizeEvent(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const imagePath = req.file
@@ -361,13 +324,9 @@ async function createDoorprizeEvent(req, res) {
 
     const event = await doorprizeService.createEvent(eventData);
 
-    res.status(201).json({
-      success: true,
-      message: 'Doorprize event created successfully',
-      event
-    });
+    return sendCreated(res, event, { meta: { message: 'Doorprize event created successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while creating doorprize event');
+    return handleControllerError(res, error, 'An error occurred while creating doorprize event');
   }
 }
 
@@ -379,11 +338,7 @@ async function updateDoorprizeEvent(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const updateData = {};
@@ -399,13 +354,9 @@ async function updateDoorprizeEvent(req, res) {
 
     const event = await doorprizeService.updateEvent(req.params.id, updateData);
 
-    res.json({
-      success: true,
-      message: 'Doorprize event updated successfully',
-      event
-    });
+    return sendSuccess(res, event, { meta: { message: 'Doorprize event updated successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while updating doorprize event');
+    return handleControllerError(res, error, 'An error occurred while updating doorprize event');
   }
 }
 
@@ -417,21 +368,14 @@ async function deleteDoorprizeEvent(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     await doorprizeService.deleteEvent(req.params.id);
 
-    res.json({
-      success: true,
-      message: 'Doorprize event deleted successfully'
-    });
+    return sendSuccess(res, null, { meta: { message: 'Doorprize event deleted successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while deleting doorprize event');
+    return handleControllerError(res, error, 'An error occurred while deleting doorprize event');
   }
 }
 
@@ -447,21 +391,14 @@ async function getGifts(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const gifts = await doorprizeService.getGiftsByEvent(req.params.id);
 
-    res.json({
-      success: true,
-      gifts
-    });
+    return sendSuccess(res, gifts);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching gifts');
+    return handleControllerError(res, error, 'An error occurred while fetching gifts');
   }
 }
 
@@ -473,11 +410,7 @@ async function createGift(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const imagePath = req.file
@@ -496,13 +429,9 @@ async function createGift(req, res) {
 
     const gift = await doorprizeService.createGift(giftData);
 
-    res.status(201).json({
-      success: true,
-      message: 'Gift created successfully',
-      gift
-    });
+    return sendCreated(res, gift, { meta: { message: 'Gift created successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while creating gift');
+    return handleControllerError(res, error, 'An error occurred while creating gift');
   }
 }
 
@@ -514,11 +443,7 @@ async function updateGift(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const updateData = {};
@@ -536,13 +461,9 @@ async function updateGift(req, res) {
 
     const gift = await doorprizeService.updateGift(req.params.id, updateData);
 
-    res.json({
-      success: true,
-      message: 'Gift updated successfully',
-      gift
-    });
+    return sendSuccess(res, gift, { meta: { message: 'Gift updated successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while updating gift');
+    return handleControllerError(res, error, 'An error occurred while updating gift');
   }
 }
 
@@ -554,21 +475,14 @@ async function deleteGift(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     await doorprizeService.deleteGift(req.params.id);
 
-    res.json({
-      success: true,
-      message: 'Gift deleted successfully'
-    });
+    return sendSuccess(res, null, { meta: { message: 'Gift deleted successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while deleting gift');
+    return handleControllerError(res, error, 'An error occurred while deleting gift');
   }
 }
 
@@ -584,11 +498,7 @@ async function getParticipants(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { page, limit, search, isActive } = req.query;
@@ -599,12 +509,9 @@ async function getParticipants(req, res) {
       isActive
     });
 
-    res.json({
-      success: true,
-      ...result
-    });
+    return sendSuccess(res, result);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching participants');
+    return handleControllerError(res, error, 'An error occurred while fetching participants');
   }
 }
 
@@ -616,11 +523,7 @@ async function createParticipant(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const imagePath = req.file
@@ -640,13 +543,9 @@ async function createParticipant(req, res) {
 
     const participant = await doorprizeService.createParticipant(participantData);
 
-    res.status(201).json({
-      success: true,
-      message: 'Participant created successfully',
-      participant
-    });
+    return sendCreated(res, participant, { meta: { message: 'Participant created successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while creating participant');
+    return handleControllerError(res, error, 'An error occurred while creating participant');
   }
 }
 
@@ -658,11 +557,7 @@ async function updateParticipant(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const updateData = {};
@@ -681,13 +576,9 @@ async function updateParticipant(req, res) {
 
     const participant = await doorprizeService.updateParticipant(req.params.id, updateData);
 
-    res.json({
-      success: true,
-      message: 'Participant updated successfully',
-      participant
-    });
+    return sendSuccess(res, participant, { meta: { message: 'Participant updated successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while updating participant');
+    return handleControllerError(res, error, 'An error occurred while updating participant');
   }
 }
 
@@ -699,21 +590,14 @@ async function deleteParticipant(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     await doorprizeService.deleteParticipant(req.params.id);
 
-    res.json({
-      success: true,
-      message: 'Participant deleted successfully'
-    });
+    return sendSuccess(res, null, { meta: { message: 'Participant deleted successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while deleting participant');
+    return handleControllerError(res, error, 'An error occurred while deleting participant');
   }
 }
 
@@ -725,30 +609,20 @@ async function importParticipants(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        message: 'Excel file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Excel file is required' });
     }
 
     const result = await doorprizeService.importFromExcel(req.params.id, req.file.buffer);
 
-    res.json({
-      success: true,
-      message: `Import completed: ${result.imported} imported, ${result.skipped} skipped`,
-      ...result
+    return sendSuccess(res, result, {
+      meta: { message: `Import completed: ${result.imported} imported, ${result.skipped} skipped` }
     });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while importing participants');
+    return handleControllerError(res, error, 'An error occurred while importing participants');
   }
 }
 
@@ -760,22 +634,16 @@ async function importParticipants(req, res) {
 async function uploadParticipantPhotos(req, res) {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        message: 'ZIP file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'ZIP file is required' });
     }
 
     const result = await doorprizeService.uploadParticipantPhotos(req.params.id, req.file.buffer);
 
-    res.json({
-      success: true,
-      message: `Photo upload completed: ${result.matched} matched, ${result.unmatched.length} unmatched`,
-      ...result
+    return sendSuccess(res, result, {
+      meta: { message: `Photo upload completed: ${result.matched} matched, ${result.unmatched.length} unmatched` }
     });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while uploading participant photos');
+    return handleControllerError(res, error, 'An error occurred while uploading participant photos');
   }
 }
 
@@ -798,7 +666,7 @@ async function downloadImportTemplate(req, res) {
 
     res.send(buffer);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while generating import template');
+    return handleControllerError(res, error, 'An error occurred while generating import template');
   }
 }
 
@@ -814,21 +682,14 @@ async function getDrawState(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const drawState = await doorprizeService.getDrawState(req.params.id);
 
-    res.json({
-      success: true,
-      ...drawState
-    });
+    return sendSuccess(res, drawState);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching draw state');
+    return handleControllerError(res, error, 'An error occurred while fetching draw state');
   }
 }
 
@@ -840,11 +701,7 @@ async function executeDraw(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { giftId } = req.body;
@@ -853,13 +710,9 @@ async function executeDraw(req, res) {
 
     const drawResult = await doorprizeService.executeDraw(eventId, giftId, userId);
 
-    res.status(201).json({
-      success: true,
-      message: 'Draw executed successfully',
-      ...drawResult
-    });
+    return sendCreated(res, drawResult, { meta: { message: 'Draw executed successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while executing draw');
+    return handleControllerError(res, error, 'An error occurred while executing draw');
   }
 }
 
@@ -871,21 +724,14 @@ async function resetDrawResult(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     await doorprizeService.resetResult(req.params.id);
 
-    res.json({
-      success: true,
-      message: 'Draw result reset successfully'
-    });
+    return sendSuccess(res, null, { meta: { message: 'Draw result reset successfully' } });
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while resetting draw result');
+    return handleControllerError(res, error, 'An error occurred while resetting draw result');
   }
 }
 
@@ -901,11 +747,7 @@ async function exportEventData(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const buffer = await doorprizeService.exportToExcel(req.params.id);
@@ -921,7 +763,7 @@ async function exportEventData(req, res) {
 
     res.send(buffer);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while exporting event data');
+    return handleControllerError(res, error, 'An error occurred while exporting event data');
   }
 }
 
@@ -941,11 +783,7 @@ async function getPublicResults(req, res) {
     // Validate eventId is a positive integer
     const id = Number(eventId);
     if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        message: 'Event ID must be a positive integer'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Event ID must be a positive integer' });
     }
 
     const options = {};
@@ -955,12 +793,9 @@ async function getPublicResults(req, res) {
 
     const result = await doorprizeService.getPublicResults(eventId, options);
 
-    res.json({
-      success: true,
-      ...result
-    });
+    return sendSuccess(res, result);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching public results');
+    return handleControllerError(res, error, 'An error occurred while fetching public results');
   }
 }
 
@@ -975,21 +810,14 @@ async function getPublicEventInfo(req, res) {
     // Validate eventId is a positive integer
     const id = Number(eventId);
     if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        message: 'Event ID must be a positive integer'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Event ID must be a positive integer' });
     }
 
     const result = await doorprizeService.getPublicEventInfo(eventId);
 
-    res.json({
-      success: true,
-      ...result
-    });
+    return sendSuccess(res, result);
   } catch (error) {
-    handleServiceError(res, error, 'An error occurred while fetching public event info');
+    return handleControllerError(res, error, 'An error occurred while fetching public event info');
   }
 }
 

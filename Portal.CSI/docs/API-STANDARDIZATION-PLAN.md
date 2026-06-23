@@ -158,7 +158,7 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
          `integrationController` menyusul
    - [x] `questionController`, `responseController`, `surveyController` — **SELESAI**
    - [x] `approvalController` — **SELESAI**
-   - [ ] `doorprizeController`
+   - [x] `doorprizeController` — **SELESAI** (test lama doorprizeController.test.js diperbarui ke envelope; doorprize.integration.test.js perlu realign saat ada DB test)
    - [ ] `reportController` (perhatikan endpoint export non-JSON)
    - [ ] `auditController`, `emailController`
    - Untuk tiap endpoint:
