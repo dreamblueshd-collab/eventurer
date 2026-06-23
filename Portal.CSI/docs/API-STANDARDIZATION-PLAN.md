@@ -150,7 +150,11 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
    - Ganti blok `if (!errors.isEmpty()) {...}` yang berulang di controller.
 3. **Migrasi controller per-modul** (ganti `res.json({...})` manual → helper).
    Urutan disarankan (kecil → besar / dependensi):
-   - [ ] `authController` (hati-hati: cookie + bentuk `user`)
+   - [x] `authController` (cookie + bentuk `user`) — **SELESAI** (data = objek user;
+         cookie auth dipertahankan; integration test diselaraskan). Semua controller
+         backend kini memakai envelope standar.
+         Catatan: error dari middleware (`authMiddleware`/`security`) masih bentuk
+         lama `{ error, message }` -> follow-up terpisah.
    - [x] `applicationController`, `businessUnitController`, `departmentController`,
          `divisionController`, `functionController` (master data) — **SELESAI**
    - [x] `userController` — **SELESAI**

@@ -3,6 +3,8 @@ const authService = require('../services/authService');
 const formEncryptionService = require('../services/formEncryptionService');
 const { getIpAddress } = require('../utils/auditHelpers');
 const logger = require('../config/logger');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 const ACCESS_COOKIE_NAME = 'csi_access_token';
 const REFRESH_COOKIE_NAME = 'csi_refresh_token';
@@ -69,6 +71,20 @@ function clearAuthCookies(res) {
 }
 
 /**
+ * Shape the public user object returned by auth endpoints.
+ */
+function toAuthUser(user) {
+  return {
+    userId: user.userId,
+    userKey: user.username,
+    username: user.username,
+    displayName: user.displayName,
+    email: user.email,
+    role: user.role
+  };
+}
+
+/**
  * Validation rules for login
  */
 const loginValidation = [
@@ -121,18 +137,14 @@ const resetPasswordValidation = [
 /**
  * Login controller
  * POST /api/auth/login
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ *
+ * Success envelope: { success:true, data: <authUser> } (+ httpOnly auth cookies).
  */
 async function login(req, res) {
   try {
-    // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi gagal'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { username, password, encryptedPassword, challengeId } = req.body;
@@ -144,59 +156,30 @@ async function login(req, res) {
     if (encryptedPassword && challengeId) {
       resolvedPassword = formEncryptionService.decryptPassword(encryptedPassword, challengeId);
       if (!resolvedPassword) {
-        return res.status(400).json({
-          error: 'Decryption failed',
-          message: 'Gagal memproses kredensial'
-        });
+        return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal memproses kredensial' });
       }
     }
 
     if (!resolvedPassword) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Password wajib diisi'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Password wajib diisi' });
     }
 
-    // Attempt login
     const result = await authService.login(username, resolvedPassword, ipAddress, userAgent);
 
     if (!result.success) {
-      return res.status(401).json({
-        error: 'Authentication failed',
-        message: 'Username atau password salah'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'Username atau password salah' });
     }
 
-    // Return success response
     setAuthCookies(res, result.token, result.refreshToken);
-    res.json({
-      success: true,
-      user: {
-        userId: result.user.userId,
-        userKey: result.user.username,
-        username: result.user.username,
-        displayName: result.user.displayName,
-        email: result.user.email,
-        role: result.user.role
-      }
-    });
-
+    return sendSuccess(res, toAuthUser(result.user));
   } catch (error) {
-    logger.error('Login controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal login'
-    });
+    return handleControllerError(res, error, 'Gagal login');
   }
 }
 
 /**
  * Logout controller
  * POST /api/auth/logout
- * Requires authentication
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function logout(req, res) {
   try {
@@ -204,149 +187,74 @@ async function logout(req, res) {
 
     if (!token) {
       clearAuthCookies(res);
-      return res.status(400).json({
-        error: 'Bad request',
-        message: 'Token tidak tersedia'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Token tidak tersedia' });
     }
 
-    // Revoke token
     const success = await authService.logout(token);
 
     if (!success) {
-      return res.status(500).json({
-        error: 'Logout failed',
-        message: 'Gagal logout'
-      });
+      return sendError(res, { status: 500, message: 'Gagal logout' });
     }
 
     clearAuthCookies(res);
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Logged out successfully' } });
   } catch (error) {
-    logger.error('Logout controller error:', error);
     clearAuthCookies(res);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal logout'
-    });
+    return handleControllerError(res, error, 'Gagal logout');
   }
 }
 
 /**
  * Validate token controller
  * GET /api/auth/validate
- * Requires authentication
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ *
+ * Success envelope: { success:true, data: <authUser> } (success implies a valid session).
  */
 async function validate(req, res) {
   try {
-    // If we reach here, token is valid (requireAuth middleware passed)
-    res.json({
-      valid: true,
-      user: {
-        userId: req.user.userId,
-        userKey: req.user.username,
-        username: req.user.username,
-        displayName: req.user.displayName,
-        email: req.user.email,
-        role: req.user.role
-      }
-    });
-
+    return sendSuccess(res, toAuthUser(req.user));
   } catch (error) {
-    logger.error('Validate controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memvalidasi session'
-    });
+    return handleControllerError(res, error, 'Gagal memvalidasi session');
   }
 }
 
 /**
  * Refresh token controller
  * POST /api/auth/refresh
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function refresh(req, res) {
   try {
-    // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi gagal'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const refreshToken = req.body.refreshToken || getCookieValue(req, REFRESH_COOKIE_NAME);
     const ipAddress = getIpAddress(req);
     const userAgent = req.get('user-agent');
 
-    // Refresh token
     const result = await authService.refreshToken(refreshToken, ipAddress, userAgent);
 
     if (!result.success) {
-      return res.status(401).json({
-        error: 'Token refresh failed',
-        message: 'Gagal refresh token'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'Gagal refresh token' });
     }
 
-    // Return success response
     setAuthCookies(res, result.token, result.refreshToken);
-    res.json({
-      success: true,
-      user: {
-        userId: result.user.userId,
-        userKey: result.user.username,
-        username: result.user.username,
-        displayName: result.user.displayName,
-        email: result.user.email,
-        role: result.user.role
-      }
-    });
-
+    return sendSuccess(res, toAuthUser(result.user));
   } catch (error) {
-    logger.error('Refresh controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal refresh token'
-    });
+    return handleControllerError(res, error, 'Gagal refresh token');
   }
 }
 
 /**
  * Get current user info controller
  * GET /api/auth/me
- * Requires authentication
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getCurrentUser(req, res) {
   try {
-    res.json({
-      user: {
-        userId: req.user.userId,
-        userKey: req.user.username,
-        username: req.user.username,
-        displayName: req.user.displayName,
-        email: req.user.email,
-        role: req.user.role
-      }
-    });
-
+    return sendSuccess(res, toAuthUser(req.user));
   } catch (error) {
-    logger.error('Get current user controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat data user'
-    });
+    return handleControllerError(res, error, 'Gagal memuat data user');
   }
 }
 
@@ -354,18 +262,12 @@ async function forgotPassword(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi gagal'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const requestedMethod = String(req.body.method || 'email').trim().toLowerCase();
     if (requestedMethod === 'phone') {
-      return res.status(503).json({
-        error: 'Phone reset disabled',
-        message: 'Reset password via phone dinonaktifkan sementara.'
-      });
+      return sendError(res, { status: 503, code: 'SERVICE_UNAVAILABLE', message: 'Reset password via phone dinonaktifkan sementara.' });
     }
 
     const result = await authService.requestPasswordReset(
@@ -378,22 +280,12 @@ async function forgotPassword(req, res) {
     );
 
     if (!result.success) {
-      return res.status(502).json({
-        error: 'Forgot password failed',
-        message: 'Gagal memproses forgot password'
-      });
+      return sendError(res, { status: 502, code: 'UPSTREAM_ERROR', message: 'Gagal memproses forgot password' });
     }
 
-    res.json({
-      success: true,
-      message: result.message
-    });
+    return sendSuccess(res, null, { meta: { message: result.message } });
   } catch (error) {
-    logger.error('Forgot password controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal request reset password'
-    });
+    return handleControllerError(res, error, 'Gagal request reset password');
   }
 }
 
@@ -401,10 +293,7 @@ async function resetPassword(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi gagal'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { token, password, encryptedPassword, challengeId } = req.body;
@@ -414,39 +303,23 @@ async function resetPassword(req, res) {
     if (encryptedPassword && challengeId) {
       resolvedPassword = formEncryptionService.decryptPassword(encryptedPassword, challengeId);
       if (!resolvedPassword) {
-        return res.status(400).json({
-          error: 'Decryption failed',
-          message: 'Gagal memproses kredensial'
-        });
+        return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal memproses kredensial' });
       }
     }
 
     if (!resolvedPassword || resolvedPassword.length < 8) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Password baru minimal 8 karakter'
-      });
+      return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: 'Password baru minimal 8 karakter' });
     }
 
     const result = await authService.resetPassword(token, resolvedPassword);
     if (!result.success) {
-      return res.status(400).json({
-        error: 'Reset password failed',
-        message: 'Gagal reset password'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Gagal reset password' });
     }
 
     clearAuthCookies(res);
-    res.json({
-      success: true,
-      message: result.message
-    });
+    return sendSuccess(res, null, { meta: { message: result.message } });
   } catch (error) {
-    logger.error('Reset password controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal reset password'
-    });
+    return handleControllerError(res, error, 'Gagal reset password');
   }
 }
 
