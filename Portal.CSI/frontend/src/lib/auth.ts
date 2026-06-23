@@ -60,25 +60,40 @@ function getErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const maybePayload = payload as Record<string, unknown>;
 
+  // Standard envelope: { success:false, error:{ code, message, details } }
+  const err = maybePayload.error;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+    const errDetails = e.details;
+    if (Array.isArray(errDetails)) {
+      const msg = collectDetailMessages(errDetails);
+      if (msg) return msg;
+    }
+  }
+
+  // Legacy shapes
   if (typeof maybePayload.message === "string") return maybePayload.message;
   if (typeof maybePayload.error === "string") return maybePayload.error;
 
   const details = maybePayload.details;
   if (Array.isArray(details) && details.length > 0) {
-    const messages = details
-      .map((item) =>
-        typeof item === "object" && item && "msg" in item
-          ? String((item as { msg: string }).msg)
-          : ""
-      )
-      .filter(Boolean);
-
-    if (messages.length > 0) {
-      return messages.join(", ");
-    }
+    const msg = collectDetailMessages(details);
+    if (msg) return msg;
   }
 
   return fallback;
+}
+
+function collectDetailMessages(details: unknown[]): string | null {
+  const messages = details
+    .map((item) =>
+      typeof item === "object" && item && "msg" in item
+        ? String((item as { msg: string }).msg)
+        : ""
+    )
+    .filter(Boolean);
+  return messages.length > 0 ? messages.join(", ") : null;
 }
 
 function tryParseJson<T>(text: string): T | null {
@@ -110,7 +125,7 @@ export async function login(
     });
 
     const rawText = await response.text().catch(() => "");
-    const payload = tryParseJson<{ success?: boolean; user?: AuthUser; message?: string; error?: string; details?: unknown[] }>(rawText);
+    const payload = tryParseJson<{ success?: boolean; data?: AuthUser; meta?: { message?: string }; message?: string; error?: unknown; details?: unknown[] }>(rawText);
 
     if (!response.ok || !payload?.success) {
       const fallbackMessage = response.status === 401 ? "Username atau password salah" : "Login gagal";
@@ -120,16 +135,17 @@ export async function login(
       };
     }
 
+    const authUser = payload.data as AuthUser;
     if (hasStorage()) {
       const storage = getStorage();
-      storage?.setItem(USER_KEY, JSON.stringify(payload.user));
+      storage?.setItem(USER_KEY, JSON.stringify(authUser));
       storage?.setItem(SESSION_MARKER_KEY, "1");
     }
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
-      localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     }
 
-    return { success: true, user: payload.user as AuthUser };
+    return { success: true, user: authUser };
   } catch {
     return {
       success: false,
@@ -151,7 +167,7 @@ export async function requestPasswordReset(
     });
 
     const rawText = await response.text().catch(() => "");
-    const payload = tryParseJson<{ success?: boolean; message?: string; error?: string; details?: unknown[] }>(rawText);
+    const payload = tryParseJson<{ success?: boolean; meta?: { message?: string }; message?: string; error?: unknown; details?: unknown[] }>(rawText);
     if (!response.ok || !payload?.success) {
       return {
         success: false,
@@ -163,7 +179,7 @@ export async function requestPasswordReset(
 
     return {
       success: true,
-      message: typeof payload?.message === "string" ? payload.message : "Permintaan reset password berhasil diproses",
+      message: typeof payload?.meta?.message === "string" ? payload.meta.message : "Permintaan reset password berhasil diproses",
     };
   } catch {
     return {
@@ -193,7 +209,7 @@ export async function resetPassword(
     });
 
     const rawText = await response.text().catch(() => "");
-    const payload = tryParseJson<{ success?: boolean; message?: string; error?: string; details?: unknown[] }>(rawText);
+    const payload = tryParseJson<{ success?: boolean; meta?: { message?: string }; message?: string; error?: unknown; details?: unknown[] }>(rawText);
     if (!response.ok || !payload?.success) {
       return {
         success: false,
@@ -205,7 +221,7 @@ export async function resetPassword(
 
     return {
       success: true,
-      message: typeof payload?.message === "string" ? payload.message : "Password berhasil direset",
+      message: typeof payload?.meta?.message === "string" ? payload.meta.message : "Password berhasil direset",
     };
   } catch {
     return {
@@ -373,18 +389,19 @@ export async function validateSession(): Promise<AuthUser | null> {
     }
 
     const payload = await response.json().catch(() => null);
-    if (!payload?.valid || !payload?.user) {
+    if (!payload?.success || !payload?.data) {
       clearSession();
       return null;
     }
 
+    const authUser = payload.data as AuthUser;
     const storage = getStorage();
-    storage?.setItem(USER_KEY, JSON.stringify(payload.user));
+    storage?.setItem(USER_KEY, JSON.stringify(authUser));
     storage?.setItem(SESSION_MARKER_KEY, "1");
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
-      localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     }
-    return payload.user as AuthUser;
+    return authUser;
   } catch {
     clearSession();
     return null;
