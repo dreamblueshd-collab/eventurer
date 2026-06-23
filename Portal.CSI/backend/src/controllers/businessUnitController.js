@@ -3,22 +3,8 @@ const businessUnitService = require('../services/businessUnitService');
 const { BulkImportService } = require('../services/bulkImportService');
 const ExcelJS = require('exceljs');
 const logger = require('../config/logger');
-
-function handleServiceError(res, error, fallbackMessage) {
-  const statusCode = error.statusCode || 500;
-  if (statusCode >= 500) {
-    logger.error(fallbackMessage, error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: fallbackMessage
-    });
-  }
-
-  return res.status(statusCode).json({
-    error: error.name || 'Request failed',
-    message: fallbackMessage
-  });
-}
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 /**
  * Validation rules for creating a business unit
@@ -47,63 +33,41 @@ const updateBusinessUnitValidation = [
 /**
  * Create a new business unit
  * POST /api/v1/business-units
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createBusinessUnit(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const { name } = req.body;
     const businessUnit = await businessUnitService.createBusinessUnit({ name });
 
-    res.status(201).json({
-      success: true,
-      message: 'Business unit created successfully',
-      businessUnit
-    });
-
+    return sendCreated(res, businessUnit, { meta: { message: 'Business unit created successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while creating business unit');
+    return handleControllerError(res, error, 'An error occurred while creating business unit');
   }
 }
 
 /**
  * Get all business units
  * GET /api/v1/business-units
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getBusinessUnits(req, res) {
   try {
     const includeInactive = req.query.includeInactive === 'true';
     const businessUnits = await businessUnitService.getBusinessUnits({ includeInactive });
 
-    res.json({
-      success: true,
-      businessUnits
-    });
-
+    return sendSuccess(res, businessUnits);
   } catch (error) {
-    logger.error('Get business units controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat business units'
-    });
+    return handleControllerError(res, error, 'Gagal memuat business units');
   }
 }
 
 /**
  * Get business unit by ID
  * GET /api/v1/business-units/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getBusinessUnitById(req, res) {
   try {
@@ -111,90 +75,49 @@ async function getBusinessUnitById(req, res) {
     const businessUnit = await businessUnitService.getBusinessUnitById(buId);
 
     if (!businessUnit) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Business unit not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Business unit not found' });
     }
 
-    res.json({
-      success: true,
-      businessUnit
-    });
-
+    return sendSuccess(res, businessUnit);
   } catch (error) {
-    logger.error('Get business unit by ID controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat business unit'
-    });
+    return handleControllerError(res, error, 'Gagal memuat business unit');
   }
 }
 
 /**
  * Update business unit
  * PUT /api/v1/business-units/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateBusinessUnit(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const buId = parseInt(req.params.id, 10);
-    const updates = req.body;
+    const businessUnit = await businessUnitService.updateBusinessUnit(buId, req.body);
 
-    const businessUnit = await businessUnitService.updateBusinessUnit(buId, updates);
-
-    res.json({
-      success: true,
-      message: 'Business unit updated successfully',
-      businessUnit
-    });
-
+    return sendSuccess(res, businessUnit, { meta: { message: 'Business unit updated successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while updating business unit');
+    return handleControllerError(res, error, 'An error occurred while updating business unit');
   }
 }
 
 /**
  * Delete business unit
  * DELETE /api/v1/business-units/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteBusinessUnit(req, res) {
   try {
     const buId = parseInt(req.params.id, 10);
     await businessUnitService.deleteBusinessUnit(buId);
 
-    res.json({
-      success: true,
-      message: 'Business unit deleted successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Business unit deleted successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while deleting business unit');
+    return handleControllerError(res, error, 'An error occurred while deleting business unit');
   }
 }
-
-module.exports = {
-  createBusinessUnit,
-  getBusinessUnits,
-  getBusinessUnitById,
-  updateBusinessUnit,
-  deleteBusinessUnit,
-  downloadTemplate,
-  uploadBusinessUnits,
-  createBusinessUnitValidation,
-  updateBusinessUnitValidation
-};
 
 /**
  * Download Excel template for bulk upload
@@ -235,7 +158,7 @@ async function downloadTemplate(req, res) {
     res.end();
   } catch (error) {
     logger.error('Download BU template error:', error);
-    res.status(500).json({ success: false, message: 'Gagal generate template' });
+    return sendError(res, { status: 500, message: 'Gagal generate template' });
   }
 }
 
@@ -246,28 +169,39 @@ async function downloadTemplate(req, res) {
 async function uploadBusinessUnits(req, res) {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File tidak ditemukan' });
     }
 
     const importSvc = new BulkImportService();
     const result = await importSvc.importData(req.file.buffer, 'BusinessUnit');
 
-    return res.json({
-      success: true,
-      message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}`,
+    return sendSuccess(res, {
       imported: result.imported,
       updated: result.updated,
       failed: result.failed,
       errors: result.errors,
+    }, {
+      meta: { message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}` }
     });
   } catch (error) {
     logger.error('Upload BU error:', error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
+    const status = error.statusCode || 500;
+    return sendError(res, {
+      status,
       message: error.message || 'Gagal upload data Business Unit',
-      errors: error.details || error.errors || [],
+      details: error.details || error.errors || [],
     });
   }
 }
 
+module.exports = {
+  createBusinessUnit,
+  getBusinessUnits,
+  getBusinessUnitById,
+  updateBusinessUnit,
+  deleteBusinessUnit,
+  downloadTemplate,
+  uploadBusinessUnits,
+  createBusinessUnitValidation,
+  updateBusinessUnitValidation
+};

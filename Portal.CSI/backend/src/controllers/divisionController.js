@@ -1,23 +1,9 @@
-const { body, param, query, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const divisionService = require('../services/divisionService');
 const ExcelJS = require('exceljs');
 const logger = require('../config/logger');
-
-function handleServiceError(res, error, fallbackMessage) {
-  const statusCode = error.statusCode || 500;
-  if (statusCode >= 500) {
-    logger.error(fallbackMessage, error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: fallbackMessage
-    });
-  }
-
-  return res.status(statusCode).json({
-    error: error.name || 'Request failed',
-    message: fallbackMessage
-  });
-}
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 /**
  * Validation rules for creating a division
@@ -52,38 +38,25 @@ const updateDivisionValidation = [
 /**
  * Create a new division
  * POST /api/v1/divisions
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createDivision(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const divisionData = req.body;
-    const division = await divisionService.createDivision(divisionData);
+    const division = await divisionService.createDivision(req.body);
 
-    res.status(201).json({
-      success: true,
-      message: 'Division created successfully',
-      division
-    });
-
+    return sendCreated(res, division, { meta: { message: 'Division created successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while creating division');
+    return handleControllerError(res, error, 'An error occurred while creating division');
   }
 }
 
 /**
  * Get all divisions or divisions by business unit
  * GET /api/v1/divisions?businessUnitId=1
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getDivisions(req, res) {
   try {
@@ -97,25 +70,15 @@ async function getDivisions(req, res) {
       divisions = await divisionService.getDivisions({ includeInactive });
     }
 
-    res.json({
-      success: true,
-      divisions
-    });
-
+    return sendSuccess(res, divisions);
   } catch (error) {
-    logger.error('Get divisions controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat divisions'
-    });
+    return handleControllerError(res, error, 'Gagal memuat divisions');
   }
 }
 
 /**
  * Get division by ID
  * GET /api/v1/divisions/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getDivisionById(req, res) {
   try {
@@ -123,76 +86,47 @@ async function getDivisionById(req, res) {
     const division = await divisionService.getDivisionById(divisionId);
 
     if (!division) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Division not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Division not found' });
     }
 
-    res.json({
-      success: true,
-      division
-    });
-
+    return sendSuccess(res, division);
   } catch (error) {
-    logger.error('Get division by ID controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat division'
-    });
+    return handleControllerError(res, error, 'Gagal memuat division');
   }
 }
 
 /**
  * Update division
  * PUT /api/v1/divisions/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateDivision(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi tidak valid'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     const divisionId = parseInt(req.params.id, 10);
-    const updates = req.body;
+    const division = await divisionService.updateDivision(divisionId, req.body);
 
-    const division = await divisionService.updateDivision(divisionId, updates);
-
-    res.json({
-      success: true,
-      message: 'Division updated successfully',
-      division
-    });
-
+    return sendSuccess(res, division, { meta: { message: 'Division updated successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while updating division');
+    return handleControllerError(res, error, 'An error occurred while updating division');
   }
 }
 
 /**
  * Delete division
  * DELETE /api/v1/divisions/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteDivision(req, res) {
   try {
     const divisionId = parseInt(req.params.id, 10);
     await divisionService.deleteDivision(divisionId);
 
-    res.json({
-      success: true,
-      message: 'Division deleted successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Division deleted successfully' } });
   } catch (error) {
-    return handleServiceError(res, error, 'An error occurred while deleting division');
+    return handleControllerError(res, error, 'An error occurred while deleting division');
   }
 }
 
@@ -234,7 +168,7 @@ async function downloadTemplate(req, res) {
     res.end();
   } catch (error) {
     logger.error('Download Division template error:', error);
-    res.status(500).json({ success: false, message: 'Gagal generate template' });
+    return sendError(res, { status: 500, message: 'Gagal generate template' });
   }
 }
 
@@ -245,28 +179,28 @@ async function downloadTemplate(req, res) {
 async function uploadDivisions(req, res) {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'File tidak ditemukan' });
     }
 
     const { BulkImportService } = require('../services/bulkImportService');
     const importSvc = new BulkImportService();
     const result = await importSvc.importData(req.file.buffer, 'Division');
 
-    return res.json({
-      success: true,
-      message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}`,
+    return sendSuccess(res, {
       imported: result.imported,
       updated: result.updated,
       failed: result.failed,
       errors: result.errors,
+    }, {
+      meta: { message: `Import selesai. Berhasil: ${result.imported + result.updated}, Gagal: ${result.failed}` }
     });
   } catch (error) {
     logger.error('Upload Division error:', error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
+    const status = error.statusCode || 500;
+    return sendError(res, {
+      status,
       message: error.message || 'Gagal upload data Divisi',
-      errors: error.details || error.errors || [],
+      details: error.details || error.errors || [],
     });
   }
 }
@@ -282,4 +216,3 @@ module.exports = {
   createDivisionValidation,
   updateDivisionValidation
 };
-

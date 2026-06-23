@@ -130,6 +130,12 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
 ### 3.1 Fondasi (SELESAI)
 - [x] `backend/src/utils/apiResponse.js` — `sendSuccess`, `sendCreated`,
       `sendPaginated`, `sendError`, `defaultErrorCode`.
+- [x] `backend/src/utils/controllerError.js` — `handleControllerError`,
+      `sendValidationErrors` (jembatan exception/validator -> envelope standar).
+- [x] Global error handler (`middleware/errorHandler.js`) sudah memakai envelope
+      `{ success:false, error:{ code, message, details? } }` + `notFoundHandler`.
+- [x] Test shape: `utils/__tests__/apiResponse.test.js`,
+      `controllers/__tests__/applicationController.test.js`.
 
 ### 3.2 Langkah
 1. **Standarkan global error handler** (`middleware/errorHandler.js`)
@@ -145,8 +151,8 @@ Sudah diimplementasikan sebagai helper di `backend/src/utils/apiResponse.js`.
 3. **Migrasi controller per-modul** (ganti `res.json({...})` manual → helper).
    Urutan disarankan (kecil → besar / dependensi):
    - [ ] `authController` (hati-hati: cookie + bentuk `user`)
-   - [ ] `applicationController`, `businessUnitController`, `departmentController`,
-         `divisionController`, `functionController` (master data — pola seragam)
+   - [x] `applicationController`, `businessUnitController`, `departmentController`,
+         `divisionController`, `functionController` (master data) — **SELESAI**
    - [ ] `userController`
    - [ ] `mappingController`, `integrationController`
    - [ ] `surveyController`, `questionController`, `responseController`

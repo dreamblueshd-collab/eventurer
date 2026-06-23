@@ -113,6 +113,43 @@ function getStatusCode(error) {
 }
 
 /**
+ * Map an error + status code to a stable machine-readable error code.
+ * @param {Error} error
+ * @param {number} statusCode
+ * @returns {string}
+ */
+function getErrorCode(error, statusCode) {
+  // Allow an explicit override on the error object.
+  if (error && error.errorCode) {
+    return error.errorCode;
+  }
+
+  const byStatus = {
+    400: 'BAD_REQUEST',
+    401: 'UNAUTHENTICATED',
+    403: 'FORBIDDEN',
+    404: 'NOT_FOUND',
+    405: 'METHOD_NOT_ALLOWED',
+    406: 'NOT_ACCEPTABLE',
+    409: 'CONFLICT',
+    413: 'PAYLOAD_TOO_LARGE',
+    415: 'UNSUPPORTED_MEDIA_TYPE',
+    422: 'VALIDATION_ERROR',
+    429: 'RATE_LIMITED',
+    500: 'INTERNAL_ERROR',
+    503: 'SERVICE_UNAVAILABLE'
+  };
+
+  // ValidationError defaults to 400 in this module's getStatusCode, but it is a
+  // validation failure semantically.
+  if (error && error.name === 'ValidationError') {
+    return 'VALIDATION_ERROR';
+  }
+
+  return byStatus[statusCode] || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'ERROR');
+}
+
+/**
  * Determine if error should be logged as error or warning
  * @param {number} statusCode - HTTP status code
  * @returns {boolean} True if should log as error
@@ -150,7 +187,10 @@ function looksLikeTechnicalError(message) {
 }
 
 /**
- * Format error response based on environment
+ * Format error response based on environment (standard envelope).
+ *
+ * Shape: { success: false, error: { code, message, details?, stack?(dev) } }
+ *
  * @param {Error} error - Error object
  * @param {number} statusCode - HTTP status code
  * @returns {Object} Formatted error response
@@ -164,37 +204,35 @@ function formatErrorResponse(error, statusCode) {
     userMessage = isDevelopment ? (error.message || 'Internal server error') : 'Terjadi kesalahan pada server. Silakan coba lagi atau hubungi administrator.';
   }
 
-  // Base error response
-  const response = {
-    error: {
-      message: userMessage,
-      type: error.name || 'Error',
-      statusCode: statusCode
-    }
+  const errorBody = {
+    code: getErrorCode(error, statusCode),
+    message: userMessage
   };
 
-  // Add validation errors if present
+  // Add validation/field errors if present
   if (error.errors && Array.isArray(error.errors)) {
-    response.error.validationErrors = error.errors;
+    errorBody.details = error.errors;
+  } else if (error.details && Array.isArray(error.details)) {
+    errorBody.details = error.details;
   }
 
-  // Add additional details in development only
+  // Add diagnostic details in development only
   if (isDevelopment) {
-    response.error.stack = error.stack;
+    errorBody.stack = error.stack;
 
     if (error.originalError) {
-      response.error.originalError = {
+      errorBody.originalError = {
         message: error.originalError.message,
         code: error.originalError.code
       };
     }
 
     if (error.service) {
-      response.error.service = error.service;
+      errorBody.service = error.service;
     }
   }
 
-  return response;
+  return { success: false, error: errorBody };
 }
 
 /**
@@ -248,19 +286,16 @@ function asyncHandler(fn) {
  */
 function notFoundHandler(req, res) {
   const isDevelopment = config.env !== 'production';
-  const response = {
-    error: {
-      message: 'Route not found',
-      type: 'NotFoundError',
-      statusCode: 404,
-    }
+  const errorBody = {
+    code: 'NOT_FOUND',
+    message: 'Route not found'
   };
   // Only expose path/method in development to avoid information leakage
   if (isDevelopment) {
-    response.error.path = req.path;
-    response.error.method = req.method;
+    errorBody.path = req.path;
+    errorBody.method = req.method;
   }
-  res.status(404).json(response);
+  res.status(404).json({ success: false, error: errorBody });
 }
 
 /**
