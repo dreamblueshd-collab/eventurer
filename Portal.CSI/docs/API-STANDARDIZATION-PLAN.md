@@ -265,8 +265,11 @@ Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
 - [x] `lib/doorprize-api.ts` — **SELESAI**
 - [x] `lib/reports.ts`, `lib/audit.ts`, `lib/email-blast.ts`, `lib/operations.ts` — **SELESAI**
 
-> **Status Fase 2:** semua `lib/*.ts` sudah memakai envelope (`data`/`meta`/`error.code`).
-> Sisa: audit komponen/page yang memanggil API langsung (bypass lib) + `npm run build` penuh + smoke test.
+> **Status Fase 2:** semua `lib/*.ts` + halaman app yang fetch API langsung
+> (`[code]`, `survey/[surveyId]`, `survey/resolve`) sudah memakai envelope
+> (`data`/`meta`/`error.code`). `npx tsc --noEmit`, `eslint`, dan **`npm run build` penuh HIJAU**.
+> Sisa satu-satunya: **smoke test manual** di environment ter-deploy (butuh backend+DB):
+> login, master CRUD, buat survey, isi survey publik, approval, doorprize draw, report/export.
 - Untuk tiap pemanggilan:
   - Baca payload dari `res.data` (bukan `res.applications` dsb.).
   - Baca list dari `res.data` + paginasi dari `res.meta.pagination`.
@@ -281,6 +284,10 @@ Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
 - Tidak ada akses field lama (`.applications`, `.user`, `.logs`, dst.).
 - Semua error UI memakai `error.code`.
 - (Jika Opsi B dipakai di Fase 1) field lama dihapus di backend setelah ini.
+
+**Status:** Kode SELESAI \u2014 semua `lib/*.ts` + halaman app (server/client) yang fetch
+API langsung memakai envelope; `tsc`/`eslint`/`npm run build` hijau. Sisa hanya smoke
+test manual di environment ter-deploy.
 
 ---
 

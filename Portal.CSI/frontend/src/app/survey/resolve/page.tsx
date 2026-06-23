@@ -22,8 +22,9 @@ export default async function ResolveShortLinkPage({
 
     if (res.ok) {
       const data = await res.json();
-      if (data.success && (data.slug || data.surveyId)) {
-        redirect(`/survey/${data.slug || data.surveyId}`);
+      const link = data?.data || {};
+      if (data.success && (link.slug || link.surveyId)) {
+        redirect(`/survey/${link.slug || link.surveyId}`);
       }
     }
   } catch {
