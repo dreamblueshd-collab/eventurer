@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title><%= subject %></title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0 !important; padding: 0 !important; background-color: #f0f2f5; }
+    @media only screen and (max-width: 600px) {
+      .email-container { width: 100% !important; }
+      .email-body { padding: 24px 16px !important; }
+      .email-header { padding: 18px 16px !important; }
+      .email-footer { padding: 16px !important; }
+      h1 { font-size: 20px !important; }
+      .cta-btn { padding: 14px 28px !important; font-size: 14px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#f0f2f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f2f5; padding:32px 0 48px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px; width:100%;">
+          <tr>
+            <td>
+
+              <!-- ── Header ── -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1d4ed8" style="background-color:#1d4ed8; border-radius:12px 12px 0 0;">
+                <tr>
+                  <td class="email-header" style="padding:22px 28px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td valign="middle" style="font-family:'Segoe UI',Arial,sans-serif; color:#fff; font-size:18px; font-weight:800; letter-spacing:-0.01em;">
+                          <% if (typeof logoCid !== 'undefined' && logoCid) { %>
+                          <img src="<%= logoCid %>" alt="Logo" width="28" height="28" style="width:28px; height:28px; display:inline-block; border-radius:5px; vertical-align:middle; margin-right:10px;" />
+                          <% } %>
+                          Portal Event
+                        </td>
+                        <td align="right" valign="middle" style="font-family:'Segoe UI',Arial,sans-serif; color:rgba(255,255,255,0.85); font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">
+                          PT Astra Otoparts Tbk
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- ── Card ── -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff; border-radius:0 0 12px 12px; box-shadow:0 8px 32px rgba(15,23,42,0.12);">
+                <tr>
+                  <td>
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding:32px 28px 28px;" class="email-body">
+
+                          <!-- Subject as title -->
+                          <h1 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 24px; line-height:1.3; letter-spacing:-0.02em; font-family:'Segoe UI',Arial,sans-serif;"><%= subject %></h1>
+
+                          <!-- Greeting -->
+                          <p style="font-size:14px; color:#475569; line-height:1.75; margin:0 0 16px; font-family:'Segoe UI',Arial,sans-serif;">Halo <%= recipientName %>,</p>
+
+                          <!-- Message body -->
+                          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:18px 20px; margin:0 0 24px;">
+                            <p style="font-size:14px; color:#334155; line-height:1.75; margin:0; white-space:pre-line; font-family:'Segoe UI',Arial,sans-serif;"><%= message %></p>
+                          </div>
+
+                          <!-- Calendar Invite Details (if calendar invite included) -->
+                          <% if (typeof includeCalendarInvite !== 'undefined' && includeCalendarInvite && startAt) { %>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; margin:0 0 24px;">
+                            <tr>
+                              <td style="padding:18px 20px;">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                  <tr>
+                                    <td style="padding-bottom:10px;">
+                                      <p style="font-size:12px; font-weight:700; color:#1d4ed8; margin:0 0 4px; text-transform:uppercase; letter-spacing:0.04em; font-family:'Segoe UI',Arial,sans-serif;">📅 Detail Undangan</p>
+                                    </td>
+                                  </tr>
+                                  <% if (typeof eventTitle !== 'undefined' && eventTitle) { %>
+                                  <tr>
+                                    <td style="padding:4px 0;">
+                                      <p style="font-size:13px; color:#334155; margin:0; font-family:'Segoe UI',Arial,sans-serif;"><strong>Event:</strong> <%= eventTitle %></p>
+                                    </td>
+                                  </tr>
+                                  <% } %>
+                                  <tr>
+                                    <td style="padding:4px 0;">
+                                      <p style="font-size:13px; color:#334155; margin:0; font-family:'Segoe UI',Arial,sans-serif;"><strong>Waktu:</strong> <%= new Date(startAt).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) %>, <%= new Date(startAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) %> - <%= new Date(endAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) %> WIB</p>
+                                    </td>
+                                  </tr>
+                                  <% if (typeof eventLocation !== 'undefined' && eventLocation) { %>
+                                  <tr>
+                                    <td style="padding:4px 0;">
+                                      <p style="font-size:13px; color:#334155; margin:0; font-family:'Segoe UI',Arial,sans-serif;"><strong>Lokasi:</strong> <%= eventLocation %></p>
+                                    </td>
+                                  </tr>
+                                  <% } %>
+                                  <% if (typeof teamsLink !== 'undefined' && teamsLink) { %>
+                                  <tr>
+                                    <td style="padding:8px 0 0;">
+                                      <a href="<%= teamsLink %>" style="display:inline-block; background:#5b5fc7; color:#ffffff !important; text-decoration:none; font-size:12px; font-weight:700; padding:8px 16px; border-radius:6px; font-family:'Segoe UI',Arial,sans-serif;">🎥 Gabung via Teams</a>
+                                    </td>
+                                  </tr>
+                                  <% } %>
+                                </table>
+                                <p style="font-size:11px; color:#64748b; margin:12px 0 0; font-family:'Segoe UI',Arial,sans-serif;">📎 File undangan kalender (.ics) terlampir — klik untuk menambahkan ke kalender Anda.</p>
+                              </td>
+                            </tr>
+                          </table>
+                          <% } %>
+
+                          <!-- Survey button (opsional) -->
+                          <% if (typeof includeSurveyButton !== 'undefined' && includeSurveyButton && surveyLink) { %>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td align="center" style="padding:0 0 24px;">
+                                <!--[if mso]>
+                                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
+                                  href="<%= surveyLink %>" style="height:50px;v-text-anchor:middle;width:220px;" arcsize="16%"
+                                  strokecolor="#1d4ed8" fillcolor="#1d4ed8">
+                                  <w:anchorlock/>
+                                  <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;"><%= buttonLabel %></center>
+                                </v:roundrect>
+                                <![endif]-->
+                                <!--[if !mso]><!-->
+                                <a href="<%= surveyLink %>" class="cta-btn" style="display:inline-block; background:#1d4ed8; color:#ffffff !important; text-decoration:none !important; font-size:15px; font-weight:700; padding:15px 44px; border-radius:8px; font-family:'Segoe UI',Arial,sans-serif;"><%= buttonLabel %> &rarr;</a>
+                                <!--<![endif]-->
+                              </td>
+                            </tr>
+                          </table>
+                          <% } %>
+
+                          <!-- QR Code (opsional) -->
+                          <% if (typeof includeQrCode !== 'undefined' && includeQrCode && qrCodeDataUrl) { %>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin:0 0 20px;">
+                            <tr>
+                              <td align="center" style="padding:20px;">
+                                <img src="<%= qrCodeDataUrl %>" alt="QR Code" style="width:160px; height:160px; border-radius:8px; border:1px solid #d1d5db; display:block; margin:0 auto 10px;" />
+                                <p style="margin:0; color:#64748b; font-size:12px; font-family:'Segoe UI',Arial,sans-serif;">Scan QR code untuk akses langsung.</p>
+                              </td>
+                            </tr>
+                          </table>
+                          <% } %>
+
+                          <p style="font-size:12px; color:#94a3b8; text-align:center; margin:24px 0 0; font-family:'Segoe UI',Arial,sans-serif;">
+                            Terima kasih atas perhatiannya.
+                          </p>
+
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Footer -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc; border-top:1px solid #f1f5f9; border-radius:0 0 12px 12px;">
+                      <tr>
+                        <td align="center" class="email-footer" style="padding:20px 32px 24px;">
+                          <p style="font-size:11px; color:#94a3b8; line-height:1.7; margin:0; font-family:'Segoe UI',Arial,sans-serif;">
+                            Email ini dikirim secara otomatis oleh <strong style="color:#64748b;">Portal Event</strong> &mdash; PT Astra Otoparts Tbk.<br />
+                            Mohon tidak membalas email ini langsung.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

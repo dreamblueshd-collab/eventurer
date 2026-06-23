@@ -1,0 +1,717 @@
+name: CD Pipeline
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+on:
+  push:
+    branches:
+      - main
+      - development
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - main
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================
+  # Wait for CI to pass before deploying
+  # ============================================================
+  wait-for-ci:
+    name: Wait for CI Pipeline
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    timeout-minutes: 15
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Wait for required CI checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          required_checks=("Backend Build & Test" "Frontend Build & Test")
+          max_attempts=60
+          sleep_seconds=15
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Polling CI checks (attempt $attempt/$max_attempts)..."
+            response="$(curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/commits/$SHA/check-runs?per_page=100")"
+
+            if ! echo "$response" | jq -e '.check_runs' >/dev/null 2>&1; then
+              echo "GitHub API response does not contain check_runs yet:"
+              echo "$response"
+              sleep "$sleep_seconds"
+              continue
+            fi
+
+            all_ok=true
+            for check in "${required_checks[@]}"; do
+              run_line="$(echo "$response" | jq -r --arg name "$check" '.check_runs[] | select(.name == $name) | "\(.status)|\(.conclusion)"' | tail -n1)"
+              if [ -z "$run_line" ]; then
+                echo " - $check: not found yet"
+                all_ok=false
+                continue
+              fi
+              status="${run_line%%|*}"
+              conclusion="${run_line##*|}"
+              echo " - $check: status=$status conclusion=$conclusion"
+              if [ "$status" != "completed" ] || [ "$conclusion" != "success" ]; then
+                all_ok=false
+              fi
+            done
+
+            if [ "$all_ok" = true ]; then
+              echo "All required CI checks completed successfully."
+              exit 0
+            fi
+
+            sleep "$sleep_seconds"
+          done
+
+          echo "Timed out waiting for required CI checks."
+          exit 1
+
+  # ============================================================
+  # Development Deployment
+  # ============================================================
+  deploy-development:
+    name: Deploy to Development Server
+    needs: [wait-for-ci]
+    if: |
+      always() && 
+      (needs.wait-for-ci.result == 'success' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/development' || (github.event_name == 'workflow_dispatch' && github.event.inputs.branch == 'development'))
+    runs-on: [self-hosted, vm-dmzsvr-b2bwebdev]
+    timeout-minutes: 30
+    env:
+      DEPLOYMENT_PATH: 'D:\Portal Event Management\Portal.CSI'
+      BACKUP_PATH: 'D:\Portal Event Management\_backups\Portal.CSI'
+      MAX_RETRIES: 5
+      RETRY_DELAY_SECONDS: 3
+
+    steps:
+      - name: Verify Correct Deployment Server
+        run: |
+          $expectedPath = "D:\Portal Event Management\Portal.CSI"
+          $hostname = $env:COMPUTERNAME
+
+          Write-Host "Current server: $hostname"
+          Write-Host "Expected deployment path: $expectedPath"
+
+          if (-not (Test-Path $expectedPath)) {
+            Write-Host "ERROR: This is not the correct deployment server!"
+            exit 1
+          }
+
+          Write-Host "[OK] Correct deployment server verified!"
+        shell: powershell
+
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ github.sha }}
+          clean: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+
+      - name: Restore local Next.js cache (development)
+        continue-on-error: true
+        run: |
+          $cacheDir = "C:\actions-cache\nextjs\development"
+          $targetDir = "frontend\.next\cache"
+
+          New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+
+          if (Test-Path $cacheDir) {
+            Write-Host "Restoring Next.js cache from $cacheDir"
+            robocopy $cacheDir $targetDir /E /R:1 /W:1 /NFL /NDL /NP
+            if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
+          } else {
+            Write-Host "No local cache found yet at $cacheDir"
+          }
+        shell: powershell
+
+      - name: Create backup directory
+        id: backup
+        run: |
+          $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+          $backupPath = "${{ env.BACKUP_PATH }}\backup-$timestamp"
+
+          if (-not (Test-Path "${{ env.BACKUP_PATH }}")) {
+            try {
+              New-Item -ItemType Directory -Force -Path "${{ env.BACKUP_PATH }}" | Out-Null
+              Write-Host "Created backup root directory: ${{ env.BACKUP_PATH }}"
+            } catch {
+              Write-Host "CRITICAL ERROR: Failed to create backup directory"
+              Write-Host "Error: $($_.Exception.Message)"
+              Write-Host "DEPLOYMENT CANCELLED - Cannot proceed without backup capability"
+              exit 1
+            }
+          }
+
+          New-Item -ItemType Directory -Force -Path $backupPath | Out-Null
+          Write-Host "Backup directory created: $backupPath"
+          echo "BACKUP_DIR=$backupPath" >> $env:GITHUB_ENV
+        shell: powershell
+
+      - name: Backup current deployment
+        run: |
+          $source = "${{ env.DEPLOYMENT_PATH }}"
+          $destination = $env:BACKUP_DIR
+
+          Write-Host "Backing up from $source to $destination"
+
+          robocopy $source $destination /MIR /R:3 /W:1 /NFL /NDL /NP /XD node_modules .next .git logs uploads coverage _backups
+
+          if ($LASTEXITCODE -le 7) {
+            $backupFileCount = (Get-ChildItem -Path $destination -Recurse -File -ErrorAction SilentlyContinue).Count
+            if ($backupFileCount -gt 0) {
+              Write-Host "Backup verification: $backupFileCount files backed up"
+            } else {
+              Write-Host "CRITICAL ERROR: Backup directory created but no files were backed up"
+              exit 1
+            }
+          } else {
+            Write-Host "CRITICAL ERROR: Backup failed with robocopy exit code: $LASTEXITCODE"
+            exit 1
+          }
+
+          exit 0
+        shell: powershell
+
+      - name: Cleanup old backups
+        run: |
+          $backupRoot = "${{ env.BACKUP_PATH }}"
+          $maxBackups = 10
+
+          Write-Host "Cleaning up old backups (keeping latest $maxBackups)..."
+          
+          $backups = Get-ChildItem -Path $backupRoot -Directory -Filter "backup-*" -ErrorAction SilentlyContinue | 
+            Sort-Object Name -Descending
+          
+          $totalBackups = ($backups | Measure-Object).Count
+          Write-Host "Found $totalBackups backup(s)"
+          
+          if ($totalBackups -gt $maxBackups) {
+            $toDelete = $backups | Select-Object -Skip $maxBackups
+            $deleteCount = ($toDelete | Measure-Object).Count
+            
+            Write-Host "Removing $deleteCount old backup(s)..."
+            foreach ($backup in $toDelete) {
+              Write-Host "  - Deleting: $($backup.Name)"
+              Remove-Item -Path $backup.FullName -Recurse -Force -ErrorAction Continue
+            }
+            Write-Host "[OK] Old backups cleaned up"
+          } else {
+            Write-Host "[OK] No cleanup needed (total backups: $totalBackups)"
+          }
+        shell: powershell
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          Write-Host "Installing backend dependencies..."
+          npm install --omit=dev --prefer-offline
+          Write-Host "[OK] Backend dependencies installed"
+        shell: powershell
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          Write-Host "Installing frontend dependencies..."
+          npm install --prefer-offline
+          Write-Host "[OK] Frontend dependencies installed"
+        shell: powershell
+
+      - name: Build frontend (standalone)
+        working-directory: frontend
+        run: |
+          Write-Host "Building frontend (clean build)..."
+          npm run build
+          Write-Host "[OK] Frontend build completed"
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+        shell: powershell
+
+      - name: Save local Next.js cache (development)
+        if: success()
+        continue-on-error: true
+        run: |
+          $sourceDir = "frontend\.next\cache"
+          $cacheDir = "C:\actions-cache\nextjs\development"
+
+          if (Test-Path $sourceDir) {
+            New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+            Write-Host "Saving Next.js cache to $cacheDir"
+            robocopy $sourceDir $cacheDir /MIR /R:1 /W:1 /NFL /NDL /NP
+            if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
+          } else {
+            Write-Host "No .next/cache directory found to save"
+          }
+        shell: powershell
+
+      - name: Copy static files to standalone
+        working-directory: frontend
+        run: |
+          New-Item -ItemType Directory -Force -Path ".next\standalone\.next\static" | Out-Null
+          New-Item -ItemType Directory -Force -Path ".next\standalone\.next\server" | Out-Null
+
+          # Patch server.js to support iisnode named pipe
+          (Get-Content ".next\standalone\server.js") -replace 'parseInt\(process\.env\.PORT, 10\)', 'isNaN(Number(process.env.PORT)) ? process.env.PORT : parseInt(process.env.PORT, 10)' | Set-Content ".next\standalone\server.js"
+
+          Copy-Item -Path ".next\static\*" -Destination ".next\standalone\.next\static\" -Recurse -Force
+          Copy-Item -Path ".next\server\*" -Destination ".next\standalone\.next\server\" -Recurse -Force
+
+          if (Test-Path "public") {
+            New-Item -ItemType Directory -Force -Path ".next\standalone\public" | Out-Null
+            # Use robocopy to handle file/folder conflicts gracefully
+            robocopy "public" ".next\standalone\public" /E /IS /IT /R:1 /W:1 /NFL /NDL /NP
+            if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
+          }
+
+          Write-Host "[OK] Static files setup completed"
+        shell: powershell
+
+      - name: Deploy with zero-downtime (hot-swap)
+        run: |
+          Write-Host "========================================="
+          Write-Host "   ZERO-DOWNTIME DEPLOYMENT (Development)"
+          Write-Host "========================================="
+
+          $maxRetries = ${{ env.MAX_RETRIES }}
+          $appcmd = "$env:windir\System32\inetsrv\appcmd.exe"
+
+          # Stop IIS app pools BEFORE deploying (prevents file locks)
+          Write-Host ""
+          Write-Host "[IIS] Stopping app pools to release file locks..."
+          if (Test-Path $appcmd) {
+            cmd /c "`"$appcmd`" stop apppool /apppool.name:`"CSI-Portal-Backend`"" 2>$null
+            cmd /c "`"$appcmd`" stop apppool /apppool.name:`"CSI-Portal-Frontend`"" 2>$null
+            Start-Sleep -Seconds 3
+            Write-Host "[OK] App pools stopped"
+          } else {
+            Write-Host "[WARNING] appcmd not found, skipping pool stop"
+          }
+
+          # Deploy backend
+          Write-Host ""
+          Write-Host "[BACKEND] Deploying backend files..."
+          $retryCount = 0
+          $deploymentSuccess = $false
+
+          while ($retryCount -lt $maxRetries -and -not $deploymentSuccess) {
+            try {
+              robocopy "backend" "${{ env.DEPLOYMENT_PATH }}\backend" /MIR /XF web.config .env .env.local .env.production package-lock.json /XD node_modules logs coverage __tests__ /R:5 /W:3 /NP /NDL /NFL
+              if ($LASTEXITCODE -le 7) {
+                Write-Host "[OK] Backend files copied successfully"
+                $deploymentSuccess = $true
+              } else {
+                $retryCount++
+                $waitTime = ($retryCount + 1) * ${{ env.RETRY_DELAY_SECONDS }}
+                Write-Host "Waiting $waitTime seconds before retry (progressive backoff)..."
+                Start-Sleep -Seconds $waitTime
+              }
+            } catch {
+              Write-Host "[ERROR] Backend deploy attempt $($retryCount + 1) failed: $($_.Exception.Message)"
+              Start-Sleep -Seconds ${{ env.RETRY_DELAY_SECONDS }}
+              $retryCount++
+            }
+          }
+
+          if (-not $deploymentSuccess) {
+            Write-Host "[ERROR] BACKEND DEPLOYMENT FAILED"
+            exit 1
+          }
+
+          # Ensure SMTP_HOST is correct in backend .env
+          $envFile = "${{ env.DEPLOYMENT_PATH }}\backend\.env"
+          if (Test-Path $envFile) {
+            $content = Get-Content $envFile -Raw
+            if ($content -match 'SMTP_HOST=10\.14\.90\.210') {
+              Write-Host "[FIX] Updating SMTP_HOST from 10.14.90.210 to 10.14.250.131"
+              $content = $content -replace 'SMTP_HOST=10\.14\.90\.210', 'SMTP_HOST=10.14.250.131'
+              Set-Content $envFile $content -NoNewline
+            }
+          }
+
+          # Deploy frontend
+          Write-Host ""
+          Write-Host "[FRONTEND] Deploying frontend standalone files..."
+          $retryCount = 0
+          $deploymentSuccess = $false
+          $frontendDest = "${{ env.DEPLOYMENT_PATH }}\frontend"
+
+          while ($retryCount -lt $maxRetries -and -not $deploymentSuccess) {
+            try {
+              robocopy "frontend\.next\standalone" $frontendDest /MIR /XF web.config .env .env.local /R:2 /W:2 /NP /NDL /NFL
+              if ($LASTEXITCODE -le 7) {
+                Write-Host "[OK] Frontend files copied successfully"
+                $deploymentSuccess = $true
+              } else {
+                $retryCount++
+                if ($retryCount -ge $maxRetries) {
+                  Write-Host "Maximum retries reached, checking critical files..."
+                  if (Test-Path "$frontendDest\server.js") {
+                    Write-Host "[OK] Critical frontend files present"
+                    $deploymentSuccess = $true
+                  }
+                } else {
+                  $waitTime = ($retryCount + 1) * ${{ env.RETRY_DELAY_SECONDS }}
+                  Write-Host "Retrying in $waitTime seconds... ($retryCount/$maxRetries)"
+                  Start-Sleep -Seconds $waitTime
+                }
+              }
+            } catch {
+              Write-Host "[ERROR] Frontend deploy attempt $($retryCount + 1) failed: $($_.Exception.Message)"
+              Start-Sleep -Seconds ${{ env.RETRY_DELAY_SECONDS }}
+              $retryCount++
+            }
+          }
+
+          if (-not $deploymentSuccess) {
+            Write-Host "[ERROR] FRONTEND DEPLOYMENT FAILED"
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "[OK] Deployment completed successfully"
+          Write-Host ""
+          exit 0
+        shell: powershell
+
+      - name: Copy web.config to development
+        run: |
+          Write-Host "Copying web.config files..."
+          # Only copy if nodeProcessCommandLine matches (prevent path mismatch across servers)
+          $frontendWc = "${{ env.DEPLOYMENT_PATH }}\frontend\web.config"
+          $backendWc = "${{ env.DEPLOYMENT_PATH }}\backend\web.config"
+
+          # Frontend: preserve existing nodeProcessCommandLine path
+          if (Test-Path $frontendWc) {
+            $existing = Get-Content $frontendWc -Raw
+            if ($existing -match 'nodeProcessCommandLine="([^"]+)"') {
+              $existingNodePath = $Matches[1]
+              $newContent = Get-Content "frontend\web.config" -Raw
+              $newContent = $newContent -replace 'nodeProcessCommandLine="[^"]+"', "nodeProcessCommandLine=`"$existingNodePath`""
+              Set-Content $frontendWc $newContent -NoNewline
+              Write-Host "[OK] Frontend web.config updated (preserved node path: $existingNodePath)"
+            } else {
+              Copy-Item -Path "frontend\web.config" -Destination $frontendWc -Force
+              Write-Host "[OK] Frontend web.config copied (fresh)"
+            }
+          } else {
+            Copy-Item -Path "frontend\web.config" -Destination $frontendWc -Force
+            Write-Host "[OK] Frontend web.config copied (new)"
+          }
+
+          # Backend: same approach
+          if (Test-Path $backendWc) {
+            $existing = Get-Content $backendWc -Raw
+            if ($existing -match 'nodeProcessCommandLine="([^"]+)"') {
+              $existingNodePath = $Matches[1]
+              $newContent = Get-Content "backend\web.config" -Raw
+              $newContent = $newContent -replace 'nodeProcessCommandLine="[^"]+"', "nodeProcessCommandLine=`"$existingNodePath`""
+              Set-Content $backendWc $newContent -NoNewline
+              Write-Host "[OK] Backend web.config updated (preserved node path: $existingNodePath)"
+            } else {
+              Copy-Item -Path "backend\web.config" -Destination $backendWc -Force
+              Write-Host "[OK] Backend web.config copied (fresh)"
+            }
+          } else {
+            Copy-Item -Path "backend\web.config" -Destination $backendWc -Force
+            Write-Host "[OK] Backend web.config copied (new)"
+          }
+        shell: powershell
+
+      - name: Enforce development canonical URLs in backend env
+        run: |
+          $envFile = "${{ env.DEPLOYMENT_PATH }}\backend\.env"
+          $domain = "https://e-venturer-stg.astraotoparts.co.id"
+
+          if (-not (Test-Path $envFile)) {
+            Write-Host "[WARN] backend .env not found, creating new file at $envFile"
+            $envDir = Split-Path -Parent $envFile
+            if (-not (Test-Path $envDir)) {
+              New-Item -ItemType Directory -Path $envDir -Force | Out-Null
+            }
+            New-Item -ItemType File -Path $envFile -Force | Out-Null
+          }
+
+          $content = Get-Content $envFile -ErrorAction SilentlyContinue
+          if (-not $content) { $content = @() }
+
+          $filtered = $content | Where-Object {
+            $_ -notmatch '^(BASE_URL|FRONTEND_BASE_URL|PUBLIC_SURVEY_BASE_URL|CORS_ORIGIN|HTTPS_ENABLED)='
+          }
+
+          $filtered += "BASE_URL=$domain"
+          $filtered += "FRONTEND_BASE_URL=$domain"
+          $filtered += "PUBLIC_SURVEY_BASE_URL=$domain"
+          $filtered += "CORS_ORIGIN=$domain"
+          $filtered += "HTTPS_ENABLED=false"
+
+          Set-Content -Path $envFile -Value $filtered
+          Write-Host "[OK] backend .env development canonical URLs updated"
+        shell: powershell
+
+      - name: Start IIS app pools (backend and frontend)
+        continue-on-error: true
+        run: |
+          Write-Host "========================================="
+          Write-Host "   STARTING IIS APPLICATION POOLS"
+          Write-Host "========================================="
+          Write-Host ""
+          $appcmd = "$env:windir\System32\inetsrv\appcmd.exe"
+          if (-not (Test-Path $appcmd)) {
+            Write-Host "  [WARNING] appcmd not found, skipping IIS pool start"
+            exit 0
+          }
+
+          $pools = @("CSI-Portal-Backend", "CSI-Portal-Frontend")
+          foreach ($pool in $pools) {
+            Write-Host "  Recycling app pool: $pool"
+            cmd /c "`"$appcmd`" recycle apppool /apppool.name:`"$pool`"" | Out-Null
+            Start-Sleep -Seconds 2
+            Write-Host "  Starting app pool: $pool"
+            cmd /c "`"$appcmd`" start apppool /apppool.name:`"$pool`"" | Out-Null
+          }
+
+          Write-Host ""
+        shell: powershell
+
+      - name: Deployment summary
+        run: |
+          Write-Host "========================================="
+          Write-Host "  [OK] DEPLOYMENT COMPLETED SUCCESSFULLY"
+          Write-Host "========================================="
+          Write-Host ""
+          Write-Host " Deployment Summary:"
+          Write-Host "  Backup: $env:BACKUP_DIR"
+          Write-Host "  Commit: ${{ github.sha }}"
+          Write-Host "  Branch: ${{ github.ref_name }}"
+          Write-Host "  Deployment Type: Zero-downtime (hot-swap)"
+          Write-Host ""
+          Write-Host " Verification:"
+          Write-Host "  Backend : http://localhost:6000/api/v1/health"
+          Write-Host "  Frontend: http://localhost:6001/login"
+          Write-Host ""
+        shell: powershell
+
+  # ============================================================
+  # Production Deployment
+  # ============================================================
+  deploy-production:
+    name: Deploy to Production Server
+    needs: [wait-for-ci]
+    if: |
+      always() && 
+      (needs.wait-for-ci.result == 'success' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.branch == 'main'))
+    runs-on: [self-hosted, 10.14.99.60]
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      - name: Prepend Git to PATH
+        run: |
+          echo C:\Program Files\Git\cmd>> "%GITHUB_PATH%"
+        shell: cmd
+
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ github.sha }}
+          clean: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+
+      - name: Restore local Next.js cache (production)
+        continue-on-error: true
+        run: |
+          set "CACHE_DIR=C:\actions-cache\nextjs\production"
+          set "TARGET_DIR=frontend\.next\cache"
+          if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
+
+          if exist "%CACHE_DIR%" (
+            echo Restoring Next.js cache from %CACHE_DIR%
+            robocopy "%CACHE_DIR%" "%TARGET_DIR%" /E /R:1 /W:1 /NFL /NDL /NP
+            if %ERRORLEVEL% LEQ 7 (exit /b 0) else (exit /b 1)
+          ) else (
+            echo No local cache found yet at %CACHE_DIR%
+          )
+        shell: cmd
+
+      - name: Create backup directory
+        run: |
+          for /f "tokens=1-6 delims=/:. " %%a in ("%date% %time%") do set TIMESTAMP=%%c%%b%%a-%%d%%e%%f
+          set BACKUP_DIR=${{ secrets.PROD_BACKUP_PATH }}\backup-%TIMESTAMP%
+          if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
+          echo Backup directory created: %BACKUP_DIR%
+          echo BACKUP_DIR=%BACKUP_DIR%>> "%GITHUB_ENV%"
+        shell: cmd
+
+      - name: Backup current deployment
+        run: |
+          echo Backing up from ${{ secrets.PROD_DEPLOY_PATH }} to %BACKUP_DIR%
+          robocopy "${{ secrets.PROD_DEPLOY_PATH }}" "%BACKUP_DIR%" /MIR /R:3 /W:5 /NFL /NDL /NP /XD node_modules .next .git logs uploads coverage _backups .vscode iisnode
+          if %ERRORLEVEL% LEQ 7 (
+            echo Backup completed successfully
+            exit /b 0
+          ) else (
+            echo Backup failed with exit code %ERRORLEVEL%
+            exit /b 1
+          )
+        shell: cmd
+
+      - name: Cleanup old backups
+        continue-on-error: true
+        run: |
+          echo Cleaning up old backups (keeping latest 10)...
+          node -e "const fs=require('fs'),path=require('path');const dir=process.env.BACKUP_ROOT;const backups=fs.readdirSync(dir).filter(f=>f.startsWith('backup-')&&fs.statSync(path.join(dir,f)).isDirectory()).sort().reverse();const toDelete=backups.slice(10);toDelete.forEach(b=>{const p=path.join(dir,b);console.log('  Deleting: '+b);fs.rmSync(p,{recursive:true,force:true})});console.log('[OK] Cleanup done. Kept '+Math.min(backups.length,10)+', deleted '+toDelete.length)"
+        shell: cmd
+        env:
+          BACKUP_ROOT: ${{ secrets.PROD_BACKUP_PATH }}
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --omit=dev --prefer-offline
+        shell: cmd
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --prefer-offline
+        shell: cmd
+
+      - name: Build frontend (standalone)
+        working-directory: frontend
+        run: npm run build
+        shell: cmd
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Save local Next.js cache (production)
+        if: success()
+        continue-on-error: true
+        run: |
+          set "SOURCE_DIR=frontend\.next\cache"
+          set "CACHE_DIR=C:\actions-cache\nextjs\production"
+
+          if exist "%SOURCE_DIR%" (
+            if not exist "%CACHE_DIR%" mkdir "%CACHE_DIR%"
+            echo Saving Next.js cache to %CACHE_DIR%
+            robocopy "%SOURCE_DIR%" "%CACHE_DIR%" /MIR /R:1 /W:1 /NFL /NDL /NP
+            if %ERRORLEVEL% LEQ 7 (exit /b 0) else (exit /b 1)
+          ) else (
+            echo No .next/cache directory found to save
+          )
+        shell: cmd
+
+      - name: Copy static files to standalone
+        working-directory: frontend
+        run: |
+          if not exist ".next\standalone\.next\static" mkdir ".next\standalone\.next\static"
+          node -e "const fs=require('fs');let c=fs.readFileSync('.next/standalone/server.js','utf8');c=c.replace('parseInt(process.env.PORT, 10)','isNaN(Number(process.env.PORT)) ? process.env.PORT : parseInt(process.env.PORT, 10)');fs.writeFileSync('.next/standalone/server.js',c);"
+          xcopy ".next\static" ".next\standalone\.next\static" /E /I /Y /Q
+          if exist "public" (
+            if not exist ".next\standalone\public" mkdir ".next\standalone\public"
+            xcopy "public" ".next\standalone\public" /E /I /Y /Q
+          )
+          echo Static files setup completed
+        shell: cmd
+
+      - name: Stop IIS Application Pools
+        run: |
+          echo Stopping IIS app pools...
+          %windir%\System32\inetsrv\appcmd.exe stop apppool /apppool.name:"${{ secrets.PROD_BACKEND_POOL }}" 2>nul
+          %windir%\System32\inetsrv\appcmd.exe stop apppool /apppool.name:"${{ secrets.PROD_FRONTEND_POOL }}" 2>nul
+          ping 127.0.0.1 -n 6 >nul
+          echo App pools stopped
+        shell: cmd
+
+      - name: Deploy backend files
+        run: |
+          echo Deploying backend...
+          robocopy "backend" "${{ secrets.PROD_DEPLOY_PATH }}\backend" /MIR /R:3 /W:5 /XD node_modules logs coverage __tests__ /XF .env .env.local .env.production *.test.js *.spec.js /NFL /NDL /NP
+          if %ERRORLEVEL% LEQ 7 (exit /b 0) else (exit /b 1)
+        shell: cmd
+
+      - name: Deploy frontend files
+        run: |
+          echo Deploying frontend...
+          robocopy "frontend\.next\standalone" "${{ secrets.PROD_DEPLOY_PATH }}\frontend" /MIR /R:3 /W:5 /XF .env .env.local .env.production /NFL /NDL /NP
+          if %ERRORLEVEL% LEQ 7 (exit /b 0) else (exit /b 1)
+          robocopy "frontend\.next\static" "${{ secrets.PROD_DEPLOY_PATH }}\frontend\.next\static" /MIR /R:3 /W:5 /NFL /NDL /NP
+          if %ERRORLEVEL% LEQ 7 (exit /b 0) else (exit /b 1)
+        shell: cmd
+
+      - name: Copy web.config to production
+        run: |
+          echo Copying web.config files...
+          copy /y "backend\web.config" "${{ secrets.PROD_DEPLOY_PATH }}\backend\web.config"
+          copy /y "frontend\web.config" "${{ secrets.PROD_DEPLOY_PATH }}\frontend\web.config"
+          echo web.config deployed
+        shell: cmd
+
+      - name: Copy production env files
+        continue-on-error: true
+        run: |
+          if exist "backend\.env.production" copy /y "backend\.env.production" "${{ secrets.PROD_DEPLOY_PATH }}\backend\.env"
+          if exist "frontend\.env.production" copy /y "frontend\.env.production" "${{ secrets.PROD_DEPLOY_PATH }}\frontend\.env"
+        shell: cmd
+
+      - name: Start IIS Application Pools
+        run: |
+          echo Starting IIS app pools...
+          %windir%\System32\inetsrv\appcmd.exe start apppool /apppool.name:"${{ secrets.PROD_BACKEND_POOL }}"
+          %windir%\System32\inetsrv\appcmd.exe start apppool /apppool.name:"${{ secrets.PROD_FRONTEND_POOL }}"
+          ping 127.0.0.1 -n 4 >nul
+          echo App pools started
+        shell: cmd
+
+      - name: Health check
+        continue-on-error: true
+        run: |
+          ping 127.0.0.1 -n 6 >nul
+          echo Checking backend health...
+          node -e "const http=require('http');http.get('${{ secrets.PROD_BACKEND_URL }}/api/v1/health',r=>{console.log('Backend: HTTP '+r.statusCode);process.exit(r.statusCode>=200&&r.statusCode<400?0:1)}).on('error',e=>{console.log('Backend health check failed: '+e.message);process.exit(1)})"
+          echo Checking frontend...
+          node -e "const http=require('http');http.get('${{ secrets.PROD_FRONTEND_URL }}',r=>{console.log('Frontend: HTTP '+r.statusCode);process.exit(r.statusCode>=200&&r.statusCode<400?0:1)}).on('error',e=>{console.log('Frontend health check failed: '+e.message);process.exit(1)})"
+        shell: cmd
+
+      - name: Deployment summary
+        run: |
+          echo =========================================
+          echo   DEPLOYMENT COMPLETED (Production)
+          echo =========================================
+          echo.
+          echo Backup: %BACKUP_DIR%
+          echo Commit: ${{ github.sha }}
+          echo Branch: ${{ github.ref_name }}
+          echo.
+          echo Production URLs:
+          echo   Backend : ${{ secrets.PROD_BACKEND_URL }}
+          echo   Frontend: ${{ secrets.PROD_FRONTEND_URL }}
+        shell: cmd

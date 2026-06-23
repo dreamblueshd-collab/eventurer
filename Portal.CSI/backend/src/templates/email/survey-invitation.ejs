@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title><%= surveyTitle %></title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0 !important; padding: 0 !important; background-color: #f0f2f5; }
+    @media only screen and (max-width: 600px) {
+      .email-container { width: 100% !important; }
+      .email-body { padding: 24px 16px !important; }
+      .email-header { padding: 18px 16px !important; }
+      .email-footer { padding: 16px !important; }
+      h1 { font-size: 20px !important; }
+      .cta-btn { padding: 14px 28px !important; font-size: 14px !important; }
+      .logo-text { font-size: 11px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#f0f2f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f2f5; padding:32px 0 48px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px; width:100%;">
+          <tr>
+            <td>
+
+              <!-- ── Header ── -->
+              <% var headerColor = (typeof primaryColor !== 'undefined' && primaryColor) ? primaryColor : '#c0392b'; %>
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:<%= headerColor %>; border-radius:12px 12px 0 0;">
+                <tr>
+                  <td class="email-header" style="padding:20px 28px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td valign="middle" style="font-family:'Segoe UI',Arial,sans-serif; color:#fff; font-size:20px; font-weight:800; letter-spacing:-0.02em;">
+                          Portal Event
+                        </td>
+                        <td align="right" valign="middle" style="font-family:'Segoe UI',Arial,sans-serif; color:rgba(255,255,255,0.85); font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">
+                          PT ASTRA OTOPARTS TBK
+                        </td>
+                      </tr>
+                    </table>
+                    <div style="height:1px; background:rgba(255,255,255,0.2); margin:12px 0 0;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- ── Card ── -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff; border-radius:0 0 12px 12px; box-shadow:0 8px 32px rgba(15,23,42,0.12);">
+                <tr>
+                  <td>
+
+                    <!-- Hero cover (opsional) -->
+                    <% if (embedCover && heroCoverUrl) { %>
+                    <img src="<%= heroCoverUrl %>" alt="Survey Cover" style="width:100%; height:auto; display:block;" />
+                    <% } %>
+
+                    <!-- Card body -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding:32px 28px 28px;" class="email-body">
+
+                          <!-- Logo + badge row -->
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+                            <tr>
+                              <td valign="middle">
+                                <% if (typeof logoCid !== 'undefined' && logoCid) { %>
+                                <img src="<%= logoCid %>" alt="PT Astra Otoparts Tbk" width="36" height="36" style="width:36px; height:36px; display:inline-block; border-radius:6px; vertical-align:middle;" />
+                                <% } %>
+                              </td>
+                              <% if (typeof showBadge === 'undefined' || showBadge) { %>
+                              <td align="center" valign="middle">
+                                <% var bdgText = (typeof badgeText !== 'undefined' && badgeText) ? badgeText : 'UNDANGAN SURVEY'; %>
+                                <span style="display:inline-block; background:#fef2f2; border:1px solid #fecaca; color:<%= headerColor %>; font-size:11px; font-weight:700; padding:5px 14px; border-radius:999px; letter-spacing:0.06em; text-transform:uppercase; font-family:'Segoe UI',Arial,sans-serif;"><%= bdgText %></span>
+                              </td>
+                              <% } %>
+                              <td width="36"></td>
+                            </tr>
+                          </table>
+
+                          <!-- Survey title -->
+                          <h1 style="font-size:24px; font-weight:800; color:#0f172a; text-align:center; margin:0 0 28px; line-height:1.2; letter-spacing:-0.02em; font-family:'Segoe UI',Arial,sans-serif;"><%= surveyTitle %></h1>
+
+                          <!-- Pesan dari form (CMS) atau default -->
+                          <% if (typeof customMessage !== 'undefined' && customMessage && customMessage.trim()) { %>
+                          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:18px 20px; margin:0 0 24px;">
+                            <p style="font-size:14px; color:#334155; line-height:1.75; margin:0; white-space:pre-line; font-family:'Segoe UI',Arial,sans-serif;"><%= customMessage %></p>
+                          </div>
+                          <% } else { %>
+                          <p style="font-size:14px; color:#475569; line-height:1.75; margin:0 0 14px; font-family:'Segoe UI',Arial,sans-serif;">Bapak/Ibu yang kami hormati,</p>
+                          <p style="font-size:14px; color:#475569; line-height:1.75; margin:0 0 20px; font-family:'Segoe UI',Arial,sans-serif;">Kami mengundang Anda untuk berpartisipasi pada <strong>Survey Kepuasan Pengguna Layanan IT &amp; BPM</strong> PT Astra Otoparts Tbk. Masukan Anda sangat berarti untuk membantu kami meningkatkan kualitas layanan.</p>
+                          <% } %>
+
+                          <!-- Info box — hanya periode (conditional) -->
+                          <% if (typeof showPeriod === 'undefined' || showPeriod) { %>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid <%= headerColor %>; border-radius:8px; margin:0 0 28px;">
+                            <tr>
+                              <td style="padding:14px 18px;">
+                                <p style="font-size:13px; color:#334155; margin:0; font-family:'Segoe UI',Arial,sans-serif;"><strong style="color:#0f172a;">Periode Survey:</strong> <%= startDate %> &ndash; <%= endDate %></p>
+                              </td>
+                            </tr>
+                          </table>
+                          <% } %>
+
+                          <!-- CTA button (conditional) -->
+                          <% if (typeof showButton === 'undefined' || showButton) { %>
+                          <% var btnLabel = (typeof buttonLabel !== 'undefined' && buttonLabel) ? buttonLabel : 'Mulai Survey'; %>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td align="center" style="padding:0 0 24px;">
+                                <!--[if mso]>
+                                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
+                                  href="<%= surveyLink %>" style="height:50px;v-text-anchor:middle;width:220px;" arcsize="16%"
+                                  strokecolor="<%= headerColor %>" fillcolor="<%= headerColor %>">
+                                  <w:anchorlock/>
+                                  <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;"><%= btnLabel %> →</center>
+                                </v:roundrect>
+                                <![endif]-->
+                                <!--[if !mso]><!-->
+                                <a href="<%= surveyLink %>" class="cta-btn" style="display:inline-block; background:<%= headerColor %>; color:#ffffff !important; text-decoration:none !important; font-size:15px; font-weight:700; padding:15px 44px; border-radius:8px; font-family:'Segoe UI',Arial,sans-serif;"><%= btnLabel %> &rarr;</a>
+                                <!--<![endif]-->
+                              </td>
+                            </tr>
+                          </table>
+                          <% } %>
+
+                          <!-- QR Code (opsional) -->
+                          <% if (typeof includeQrCode !== 'undefined' && includeQrCode && ((typeof qrCodeImageSrc !== 'undefined' && qrCodeImageSrc) || (typeof qrCodeDataUrl !== 'undefined' && qrCodeDataUrl))) { %>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin:0 0 20px;">
+                            <tr>
+                              <td align="center" style="padding:20px;">
+                                <img src="<%= qrCodeImageSrc || qrCodeDataUrl %>" alt="QR Code Survey" style="width:160px; height:160px; border-radius:8px; border:1px solid #d1d5db; display:block; margin:0 auto 10px;" />
+                                <p style="margin:0; color:#64748b; font-size:12px; font-family:'Segoe UI',Arial,sans-serif;">Scan QR code ini untuk membuka survey dari perangkat mobile Anda.</p>
+                              </td>
+                            </tr>
+                          </table>
+                          <% } %>
+
+                          <!-- Link fallback (conditional) -->
+                          <% if (typeof showLinkFallback === 'undefined' || showLinkFallback) { %>
+                          <p style="font-size:12px; color:#94a3b8; text-align:center; margin:0 0 24px; word-break:break-all; font-family:'Segoe UI',Arial,sans-serif;">
+                            Jika tombol tidak berfungsi, salin link berikut ke browser Anda:<br />
+                            <a href="<%= surveyLink %>" style="color:<%= headerColor %>; text-decoration:underline;"><%= surveyLink %></a>
+                          </p>
+                          <% } %>
+
+                          <div style="height:1px; background:#f1f5f9; margin:0 0 20px;"></div>
+
+                          <p style="font-size:12px; color:#94a3b8; text-align:center; margin:0; font-family:'Segoe UI',Arial,sans-serif;">
+                            Survey ini hanya membutuhkan beberapa menit. Terima kasih atas partisipasi Anda.
+                          </p>
+
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Footer -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc; border-top:1px solid #f1f5f9;">
+                      <tr>
+                        <td align="center" class="email-footer" style="padding:20px 32px 28px;">
+                          <p style="font-size:11px; color:#94a3b8; line-height:1.7; margin:0; font-family:'Segoe UI',Arial,sans-serif;">
+                            Email ini dikirim secara otomatis oleh <strong style="color:#64748b;">Portal Event</strong> &mdash; PT Astra Otoparts Tbk.<br />
+                            Mohon tidak membalas email ini langsung.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,213 @@
+/* ═══════════════════════════════════════════════════════════════
+   SlotMachine — Vertical scrolling with 3D depth and neon
+   ═══════════════════════════════════════════════════════════════ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  perspective: 800px;
+}
+
+/* ── Machine frame ── */
+.frame {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  background: rgba(10, 15, 30, 0.9);
+  border-radius: 24px;
+  border: 2px solid rgba(139, 92, 246, 0.35);
+  box-shadow:
+    0 0 40px rgba(99, 102, 241, 0.15),
+    0 0 80px rgba(99, 102, 241, 0.05),
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    inset 0 0 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  transform-style: preserve-3d;
+  transform: rotateX(2deg);
+}
+
+/* ── Highlight bar (center row indicator) ── */
+.highlightBar {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 80px;
+  transform: translateY(-50%);
+  background: rgba(139, 92, 246, 0.1);
+  border-top: 2px solid rgba(139, 92, 246, 0.6);
+  border-bottom: 2px solid rgba(139, 92, 246, 0.6);
+  box-shadow:
+    0 0 20px rgba(139, 92, 246, 0.2),
+    inset 0 0 20px rgba(139, 92, 246, 0.05);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ── Viewport (visible area) ── */
+.viewport {
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Scrolling strip ── */
+.strip {
+  will-change: transform;
+}
+
+/* ── Individual item row ── */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background 0.2s ease;
+}
+
+.itemWinner {
+  background: rgba(245, 158, 11, 0.12);
+  box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.08);
+}
+
+.itemContent {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* ── Avatar ── */
+.itemAvatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(139, 92, 246, 0.25);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.itemAvatarPlaceholder {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #312e81, #4338ca);
+  font-size: 22px;
+  border: 2px solid rgba(139, 92, 246, 0.25);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 8px rgba(99, 102, 241, 0.15);
+}
+
+/* ── Name / unit info ── */
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.itemName {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.itemUnit {
+  font-size: 13px;
+  color: rgba(148, 163, 184, 0.7);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Fade overlays (top/bottom) ── */
+.fadeTop,
+.fadeBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 70px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.fadeTop {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(10, 15, 30, 0.98), transparent);
+}
+
+.fadeBottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(10, 15, 30, 0.98), transparent);
+}
+
+/* ── Screen reader only ── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .frame {
+    max-width: 400px;
+    border-radius: 18px;
+  }
+
+  .item {
+    padding: 8px 16px;
+  }
+
+  .itemAvatar,
+  .itemAvatarPlaceholder {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .itemName {
+    font-size: 14px;
+  }
+
+  .itemUnit {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 16px 10px;
+  }
+
+  .frame {
+    max-width: 100%;
+    border-radius: 14px;
+  }
+
+  .itemContent {
+    gap: 12px;
+  }
+}
