@@ -245,9 +245,18 @@ Fase 1 (backend) selesai dan diselaraskan. Ringkasan hasil review:
    - Map `error.code` → pesan/penanganan UI (toast, redirect 401, dsb.).
    - Integrasikan dengan `fetch-with-auth.ts` & proxy `app/api/[...path]`.
 
+### 4.1 Fondasi (SELESAI)
+1. [x] Tipe generik di `frontend/src/types/api.ts` (`ApiResponse<T>`, `ApiSuccess`,
+   `ApiErrorResponse`, `ApiMeta`, `ApiPagination`, `ApiErrorCode`).
+2. [x] Helper terpusat `frontend/src/lib/api-client.ts`:
+   - `apiFetch`/`apiGet`/`apiGetWithMeta`/`apiPost`/`apiPut`/`apiPatch`/`apiDelete`
+     mengembalikan `data` (+`meta`) atau melempar `ApiError` (membawa `code`/`status`/`details`).
+   - `getApiErrorMessage` (envelope + legacy + validator details), `isApiError`.
+   - Terintegrasi dengan `fetchWithAuth` (401 -> redirect login) & proxy `app/api/[...path]`.
+
 ### 4.2 Langkah migrasi (cermin dari modul Fase 1)
 Sesuaikan tiap file `lib/*.ts` + komponen/page yang memakainya:
-- [ ] `lib/auth.ts` (login → `data.user`), `fetch-with-auth.ts`
+- [x] `lib/auth.ts` (login/validate -> `data`, forgot/reset -> `meta.message`), `fetch-with-auth.ts` — **SELESAI**
 - [ ] `lib/master-data.ts`, `lib/org-hierarchy.ts`, `lib/users.ts`
 - [ ] `lib/mappings.ts`
 - [ ] `lib/survey-events.ts`, `lib/survey-questions.ts`, `lib/public-survey.ts`,
