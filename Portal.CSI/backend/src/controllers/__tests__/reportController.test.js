@@ -47,11 +47,11 @@ describe('reportController', () => {
       });
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        report,
+        data: report,
       });
     });
 
-    it('should map validation errors to 400 response', async () => {
+    it('should map validation errors to 422 response', async () => {
       const error = new Error('Report belum digenerate untuk event ini.');
       error.name = 'ValidationError';
       reportService.viewReport.mockRejectedValue(error);
@@ -64,10 +64,10 @@ describe('reportController', () => {
 
       await reportController.viewReport(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(422);
       expect(res.json).toHaveBeenCalledWith({
-        error: 'Validation error',
-        message: 'An error occurred while fetching report',
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'An error occurred while fetching report' },
       });
     });
   });

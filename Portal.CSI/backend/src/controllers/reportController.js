@@ -1,6 +1,7 @@
-const { param, query, validationResult } = require('express-validator');
 const reportService = require('../services/reportService');
 const logger = require('../config/logger');
+const { sendSuccess, sendError } = require('../utils/apiResponse');
+const { handleControllerError } = require('../utils/controllerError');
 
 function buildExportFilename(title, extension) {
   const normalized = String(title || 'report')
@@ -12,52 +13,35 @@ function buildExportFilename(title, extension) {
   return `report-${safeName}.${extension}`;
 }
 
+/**
+ * Map report-service errors to the standard error envelope.
+ * UnauthorizedError stays 403 (access denied); ValidationError->422, NotFound->404.
+ * The user-facing message uses the provided fallback (no raw detail leakage).
+ */
 function handleReportError(error, res, fallbackMessage) {
   const name = String(error?.name || '');
   if (name === 'ValidationError') {
-    return res.status(400).json({
-      error: 'Validation error',
-      message: fallbackMessage
-    });
+    return sendError(res, { status: 422, code: 'VALIDATION_ERROR', message: fallbackMessage });
   }
   if (name === 'NotFoundError') {
-    return res.status(404).json({
-      error: 'Not found',
-      message: fallbackMessage
-    });
+    return sendError(res, { status: 404, code: 'NOT_FOUND', message: fallbackMessage });
   }
   if (name === 'UnauthorizedError') {
-    return res.status(403).json({
-      error: 'Access denied',
-      message: fallbackMessage
-    });
+    return sendError(res, { status: 403, code: 'FORBIDDEN', message: fallbackMessage });
   }
-  return res.status(500).json({
-    error: 'Internal server error',
-    message: fallbackMessage
-  });
+  return sendError(res, { status: 500, message: fallbackMessage });
 }
 
 /**
  * Generate report
  * POST /api/v1/reports/generate
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generateReport(req, res) {
   try {
-    const request = {
-      ...req.body,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-    };
+    const request = { ...req.body, userId: req.user?.userId, userRole: req.user?.role };
     const report = await reportService.generateReport(request);
 
-    res.json({
-      success: true,
-      report
-    });
-
+    return sendSuccess(res, report);
   } catch (error) {
     logger.error('Generate report controller error:', error);
     return handleReportError(error, res, 'An error occurred while generating report');
@@ -67,23 +51,13 @@ async function generateReport(req, res) {
 /**
  * View generated report
  * POST /api/v1/reports/view
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function viewReport(req, res) {
   try {
-    const request = {
-      ...req.body,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-    };
+    const request = { ...req.body, userId: req.user?.userId, userRole: req.user?.role };
     const report = await reportService.viewReport(request);
 
-    res.json({
-      success: true,
-      report
-    });
-
+    return sendSuccess(res, report);
   } catch (error) {
     logger.error('View report controller error:', error);
     return handleReportError(error, res, 'An error occurred while fetching report');
@@ -93,23 +67,13 @@ async function viewReport(req, res) {
 /**
  * Generate before takeout report
  * POST /api/v1/reports/before-takeout
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generateBeforeTakeoutReport(req, res) {
   try {
-    const request = {
-      ...req.body,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-    };
+    const request = { ...req.body, userId: req.user?.userId, userRole: req.user?.role };
     const report = await reportService.generateBeforeTakeoutReport(request);
 
-    res.json({
-      success: true,
-      report
-    });
-
+    return sendSuccess(res, report);
   } catch (error) {
     logger.error('Generate before takeout report controller error:', error);
     return handleReportError(error, res, 'An error occurred while generating report');
@@ -119,23 +83,13 @@ async function generateBeforeTakeoutReport(req, res) {
 /**
  * Generate after takeout report
  * POST /api/v1/reports/after-takeout
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generateAfterTakeoutReport(req, res) {
   try {
-    const request = {
-      ...req.body,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-    };
+    const request = { ...req.body, userId: req.user?.userId, userRole: req.user?.role };
     const report = await reportService.generateAfterTakeoutReport(request);
 
-    res.json({
-      success: true,
-      report
-    });
-
+    return sendSuccess(res, report);
   } catch (error) {
     logger.error('Generate after takeout report controller error:', error);
     return handleReportError(error, res, 'An error occurred while generating report');
@@ -145,8 +99,6 @@ async function generateAfterTakeoutReport(req, res) {
 /**
  * Get report selection list
  * GET /api/v1/reports/selection-list
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getReportSelectionList(req, res) {
   try {
@@ -155,25 +107,15 @@ async function getReportSelectionList(req, res) {
       userRole: req.user?.role,
     });
 
-    res.json({
-      success: true,
-      surveys: list
-    });
-
+    return sendSuccess(res, list);
   } catch (error) {
-    logger.error('Get report selection list controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat report selection list'
-    });
+    return handleControllerError(res, error, 'Gagal memuat report selection list');
   }
 }
 
 /**
  * Get takeout comparison table
  * GET /api/v1/reports/takeout-comparison/:surveyId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getTakeoutComparisonTable(req, res) {
   try {
@@ -185,25 +127,15 @@ async function getTakeoutComparisonTable(req, res) {
       functionId ? String(functionId) : null
     );
 
-    res.json({
-      success: true,
-      comparison
-    });
-
+    return sendSuccess(res, comparison);
   } catch (error) {
-    logger.error('Get takeout comparison controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat comparison'
-    });
+    return handleControllerError(res, error, 'Gagal memuat comparison');
   }
 }
 
 /**
  * Get Department Head review
  * GET /api/v1/reports/department-head-review/:departmentId/:surveyId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getDepartmentHeadReview(req, res) {
   try {
@@ -212,25 +144,15 @@ async function getDepartmentHeadReview(req, res) {
 
     const review = await reportService.getDepartmentHeadReview(departmentId, surveyId);
 
-    res.json({
-      success: true,
-      review
-    });
-
+    return sendSuccess(res, review);
   } catch (error) {
-    logger.error('Get Department Head review controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat review'
-    });
+    return handleControllerError(res, error, 'Gagal memuat review');
   }
 }
 
 /**
  * Get scores by function
  * GET /api/v1/reports/scores-by-function/:departmentId/:surveyId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getScoresByFunction(req, res) {
   try {
@@ -239,25 +161,15 @@ async function getScoresByFunction(req, res) {
 
     const scores = await reportService.getScoresByFunction(departmentId, surveyId);
 
-    res.json({
-      success: true,
-      scores
-    });
-
+    return sendSuccess(res, scores);
   } catch (error) {
-    logger.error('Get scores by function controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat scores'
-    });
+    return handleControllerError(res, error, 'Gagal memuat scores');
   }
 }
 
 /**
  * Get approved takeouts
  * GET /api/v1/reports/approved-takeouts/:departmentId/:surveyId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getApprovedTakeouts(req, res) {
   try {
@@ -266,33 +178,19 @@ async function getApprovedTakeouts(req, res) {
 
     const takeouts = await reportService.getApprovedTakeouts(departmentId, surveyId);
 
-    res.json({
-      success: true,
-      takeouts
-    });
-
+    return sendSuccess(res, takeouts);
   } catch (error) {
-    logger.error('Get approved takeouts controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Gagal memuat takeouts'
-    });
+    return handleControllerError(res, error, 'Gagal memuat takeouts');
   }
 }
 
 /**
  * Export report to Excel
  * POST /api/v1/reports/export/excel
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function exportToExcel(req, res) {
   try {
-    const request = {
-      ...req.body,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-    };
+    const request = { ...req.body, userId: req.user?.userId, userRole: req.user?.role };
     const buffer = await reportService.exportToExcel(request);
     const report = await reportService.viewReport(request);
     const filename = buildExportFilename(report?.survey?.title, 'xlsx');
@@ -300,7 +198,6 @@ async function exportToExcel(req, res) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
-
   } catch (error) {
     logger.error('Export to Excel controller error:', error);
     return handleReportError(error, res, 'An error occurred while exporting to Excel');
@@ -310,16 +207,10 @@ async function exportToExcel(req, res) {
 /**
  * Export report to PDF
  * POST /api/v1/reports/export/pdf
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function exportToPdf(req, res) {
   try {
-    const request = {
-      ...req.body,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-    };
+    const request = { ...req.body, userId: req.user?.userId, userRole: req.user?.role };
     const buffer = await reportService.exportToPdf(request);
     const report = await reportService.viewReport(request);
     const filename = buildExportFilename(report?.survey?.title, 'pdf');
@@ -327,7 +218,6 @@ async function exportToPdf(req, res) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
-
   } catch (error) {
     logger.error('Export to PDF controller error:', error);
     return handleReportError(error, res, 'An error occurred while exporting to PDF');
@@ -337,25 +227,14 @@ async function exportToPdf(req, res) {
 /**
  * Get aggregate statistics
  * POST /api/v1/reports/statistics
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getAggregateStatistics(req, res) {
   try {
-    const request = req.body;
-    const statistics = await reportService.getAggregateStatistics(request);
+    const statistics = await reportService.getAggregateStatistics(req.body);
 
-    res.json({
-      success: true,
-      statistics
-    });
-
+    return sendSuccess(res, statistics);
   } catch (error) {
-    logger.error('Get aggregate statistics controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching statistics'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching statistics');
   }
 }
 
