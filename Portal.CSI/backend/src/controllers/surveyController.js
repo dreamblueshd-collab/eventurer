@@ -3,6 +3,8 @@ const surveyService = require('../services/surveyService');
 const logger = require('../config/logger');
 const multer = require('multer');
 const scheduledOperationsProcessor = require('../services/scheduledOperationsProcessor');
+const { sendSuccess, sendCreated, sendError } = require('../utils/apiResponse');
+const { handleControllerError, sendValidationErrors } = require('../utils/controllerError');
 
 // Configure multer for file uploads
 const allowedImageMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -111,32 +113,24 @@ const updateSurveyValidation = [
 /**
  * Create a new survey
  * POST /api/v1/surveys
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function createSurvey(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Validasi gagal'
-      });
+      return sendValidationErrors(res, errors);
     }
 
     // Defensive: try multiple property names for userId
     const createdBy = req.user?.userId || req.user?.UserId || req.user?.id;
-    
+
     if (!createdBy) {
       logger.error('CreateSurvey: Unable to determine userId from req.user', {
         reqUser: req.user,
         hasReqUser: !!req.user,
         userKeys: req.user ? Object.keys(req.user) : []
       });
-      return res.status(401).json({ 
-        error: 'Authentication error', 
-        message: 'Autentikasi gagal'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'Autentikasi gagal' });
     }
 
     const surveyData = {
@@ -146,33 +140,15 @@ async function createSurvey(req, res) {
 
     const result = await surveyService.createSurvey(surveyData);
 
-    res.status(201).json({
-      success: true,
-      message: 'Event created successfully',
-      survey: result
-    });
-
+    return sendCreated(res, result, { meta: { message: 'Event created successfully' } });
   } catch (error) {
-    logger.error('Create survey controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: 'Request gagal',
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while creating survey'
-    });
+    return handleControllerError(res, error, 'An error occurred while creating survey');
   }
 }
 
 /**
  * Get all surveys
  * GET /api/v1/surveys
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getSurveys(req, res) {
   try {
@@ -190,600 +166,287 @@ async function getSurveys(req, res) {
 
     const surveys = await surveyService.getSurveys(filter);
 
-    res.json({
-      success: true,
-      surveys
-    });
-
+    return sendSuccess(res, surveys);
   } catch (error) {
-    logger.error('Get surveys controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: 'Request gagal',
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching surveys'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching surveys');
   }
 }
 
 /**
  * Get survey by ID
  * GET /api/v1/surveys/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getSurveyById(req, res) {
   try {
-    const surveyId = req.params.id;
-    const survey = await surveyService.getSurveyById(surveyId);
+    const survey = await surveyService.getSurveyById(req.params.id);
 
     if (!survey) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Survey not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Survey not found' });
     }
 
-    res.json({
-      success: true,
-      survey
-    });
-
+    return sendSuccess(res, survey);
   } catch (error) {
-    logger.error('Get survey by ID controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: 'Request gagal',
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching survey'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching survey');
   }
 }
 
 /**
  * Update survey
  * PUT /api/v1/surveys/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateSurvey(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors.array()
-      });
+      return sendValidationErrors(res, errors);
     }
 
-    const surveyId = req.params.id;
     const updates = {
       ...req.body,
       updatedBy: req.user?.userId,
     };
 
-    const result = await surveyService.updateSurvey(surveyId, updates);
+    const result = await surveyService.updateSurvey(req.params.id, updates);
 
-    res.json({
-      success: true,
-      message: 'Event updated successfully',
-      survey: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'Event updated successfully' } });
   } catch (error) {
-    logger.error('Update survey controller error:', error);
-
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: 'Request gagal',
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while updating survey'
-    });
+    return handleControllerError(res, error, 'An error occurred while updating survey');
   }
 }
 
 /**
  * Delete survey
  * DELETE /api/v1/surveys/:id
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function deleteSurvey(req, res) {
   try {
-    const surveyId = req.params.id;
-    const result = await surveyService.deleteSurvey(surveyId);
+    const result = await surveyService.deleteSurvey(req.params.id);
 
     if (!result) {
-      return res.status(400).json({
-        error: 'Event deletion failed',
-        message: 'Event deletion failed'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Event deletion failed' });
     }
 
-    res.json({
-      success: true,
-      message: 'Event deleted successfully'
-    });
-
+    return sendSuccess(res, null, { meta: { message: 'Event deleted successfully' } });
   } catch (error) {
-    logger.error('Delete survey controller error:', error);
-
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: 'Request gagal',
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while deleting survey'
-    });
+    return handleControllerError(res, error, 'An error occurred while deleting survey');
   }
 }
 
 /**
  * Update survey configuration
  * PATCH /api/v1/surveys/:id/config
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function updateSurveyConfig(req, res) {
   try {
-    const surveyId = req.params.id;
-    const config = req.body;
+    const result = await surveyService.updateSurveyConfig(req.params.id, req.body);
 
-    const result = await surveyService.updateSurveyConfig(surveyId, config);
-
-    res.json({
-      success: true,
-      message: 'Survey configuration updated successfully',
-      config: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'Survey configuration updated successfully' } });
   } catch (error) {
-    logger.error('Update survey config controller error:', error);
-
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while updating configuration'
-    });
+    return handleControllerError(res, error, 'An error occurred while updating configuration');
   }
 }
 
 /**
  * Generate survey preview
  * GET /api/v1/surveys/:id/preview
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generatePreview(req, res) {
   try {
-    const surveyId = req.params.id;
-    const preview = await surveyService.generatePreview(surveyId);
+    const preview = await surveyService.generatePreview(req.params.id);
 
     if (!preview) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: 'Survey not found'
-      });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Survey not found' });
     }
 
-    res.json({
-      success: true,
-      preview
-    });
-
+    return sendSuccess(res, preview);
   } catch (error) {
-    logger.error('Generate preview controller error:', error);
-
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while generating preview'
-    });
+    return handleControllerError(res, error, 'An error occurred while generating preview');
   }
 }
 
 /**
  * Generate survey link
  * POST /api/v1/surveys/:id/link
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generateSurveyLink(req, res) {
   try {
-    const surveyId = req.params.id;
     const { shortenUrl } = req.body;
+    const result = await surveyService.generateSurveyLink(req.params.id, shortenUrl);
 
-    const result = await surveyService.generateSurveyLink(surveyId, shortenUrl);
-
-    res.json({
-      success: true,
-      surveyLink: result.surveyLink,
-      shortenedLink: result.shortenedLink
-    });
-
+    return sendSuccess(res, { surveyLink: result.surveyLink, shortenedLink: result.shortenedLink });
   } catch (error) {
-    logger.error('Generate survey link controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while generating link'
-    });
+    return handleControllerError(res, error, 'An error occurred while generating link');
   }
 }
 
 /**
  * Generate QR code
  * POST /api/v1/surveys/:id/qrcode
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generateQRCode(req, res) {
   try {
-    const surveyId = req.params.id;
-    const result = await surveyService.generateQRCode(surveyId);
+    const result = await surveyService.generateQRCode(req.params.id);
 
-    res.json({
-      success: true,
-      qrCodeDataUrl: result
-    });
-
+    return sendSuccess(res, { qrCodeDataUrl: result });
   } catch (error) {
-    logger.error('Generate QR code controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while generating QR code'
-    });
+    return handleControllerError(res, error, 'An error occurred while generating QR code');
   }
 }
 
 /**
  * Generate embed code
  * POST /api/v1/surveys/:id/embed
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function generateEmbedCode(req, res) {
   try {
-    const surveyId = req.params.id;
-    const result = await surveyService.generateEmbedCode(surveyId);
+    const result = await surveyService.generateEmbedCode(req.params.id);
 
-    res.json({
-      success: true,
-      embedCode: result
-    });
-
+    return sendSuccess(res, { embedCode: result });
   } catch (error) {
-    logger.error('Generate embed code controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while generating embed code'
-    });
+    return handleControllerError(res, error, 'An error occurred while generating embed code');
   }
 }
 
 /**
  * Schedule blast
  * POST /api/v1/surveys/:id/schedule-blast
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function scheduleBlast(req, res) {
   try {
-    const surveyId = req.params.id;
     const request = {
       ...req.body,
-      surveyId,
+      surveyId: req.params.id,
       createdBy: req.user?.userId
     };
 
     const result = await surveyService.scheduleBlast(request);
 
-    res.status(201).json({
-      success: true,
-      message: 'Blast scheduled successfully',
-      operation: result
-    });
-
+    return sendCreated(res, result, { meta: { message: 'Blast scheduled successfully' } });
   } catch (error) {
-    logger.error('Schedule blast controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while scheduling blast'
-    });
+    return handleControllerError(res, error, 'An error occurred while scheduling blast');
   }
 }
 
 /**
  * Schedule reminder
  * POST /api/v1/surveys/:id/schedule-reminder
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function scheduleReminder(req, res) {
   try {
-    const surveyId = req.params.id;
     const request = {
       ...req.body,
-      surveyId,
+      surveyId: req.params.id,
       createdBy: req.user?.userId
     };
 
     const result = await surveyService.scheduleReminder(request);
 
-    res.status(201).json({
-      success: true,
-      message: 'Reminder scheduled successfully',
-      operation: result
-    });
-
+    return sendCreated(res, result, { meta: { message: 'Reminder scheduled successfully' } });
   } catch (error) {
-    logger.error('Schedule reminder controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while scheduling reminder'
-    });
+    return handleControllerError(res, error, 'An error occurred while scheduling reminder');
   }
 }
 
 /**
  * Get scheduled operations
  * GET /api/v1/surveys/:id/scheduled-operations
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getScheduledOperations(req, res) {
   try {
-    const surveyId = req.params.id;
     const { type, status } = req.query;
 
     const filter = {};
     if (type) filter.operationType = type;
     if (status) filter.status = status;
 
-    const operations = await surveyService.getScheduledOperations(surveyId, filter);
+    const operations = await surveyService.getScheduledOperations(req.params.id, filter);
 
-    res.json({
-      success: true,
-      operations
-    });
-
+    return sendSuccess(res, operations);
   } catch (error) {
-    logger.error('Get scheduled operations controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching scheduled operations'
-    });
+    return handleControllerError(res, error, 'An error occurred while fetching scheduled operations');
   }
 }
 
 /**
  * Cancel scheduled operation
  * DELETE /api/v1/surveys/scheduled-operations/:operationId
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function cancelScheduledOperation(req, res) {
   try {
-    const operationId = req.params.operationId;
-    const result = await surveyService.cancelScheduledOperation(operationId);
+    const result = await surveyService.cancelScheduledOperation(req.params.operationId);
 
-    res.json({
-      success: true,
-      message: 'Scheduled operation cancelled successfully',
-      operation: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'Scheduled operation cancelled successfully' } });
   } catch (error) {
-    logger.error('Cancel scheduled operation controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while cancelling operation'
-    });
+    return handleControllerError(res, error, 'An error occurred while cancelling operation');
   }
 }
 
 async function retryScheduledOperation(req, res) {
   try {
-    const operationId = req.params.operationId;
-    const result = await surveyService.retryScheduledOperation(operationId);
+    const result = await surveyService.retryScheduledOperation(req.params.operationId);
 
     // Trigger processor immediately so email is sent right now
     scheduledOperationsProcessor.triggerProcessing().catch((err) => {
       logger.error('Immediate trigger after retry failed:', err);
     });
 
-    res.json({
-      success: true,
-      message: 'Email sedang dikirim ulang',
-      operation: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'Email sedang dikirim ulang' } });
   } catch (error) {
-    logger.error('Retry scheduled operation controller error:', error);
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.name || 'Request failed',
-        message: error.message,
-      });
-    }
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while retrying operation'
-    });
+    return handleControllerError(res, error, 'An error occurred while retrying operation');
   }
 }
 
 /**
  * Upload hero image
  * POST /api/v1/surveys/:id/upload/hero
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function uploadHeroImage(req, res) {
   try {
-    const surveyId = req.params.id;
-    
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Image file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Image file is required' });
     }
 
-    const result = await surveyService.uploadHeroImage(surveyId, req.file);
+    const result = await surveyService.uploadHeroImage(req.params.id, req.file);
 
-    res.json({
-      success: true,
-      message: 'Hero image uploaded successfully',
-      imageUrl: result.HeroImageUrl
-    });
-
+    return sendSuccess(res, { imageUrl: result.HeroImageUrl }, { meta: { message: 'Hero image uploaded successfully' } });
   } catch (error) {
-    logger.error('Upload hero image controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while uploading image'
-    });
+    return handleControllerError(res, error, 'An error occurred while uploading image');
   }
 }
 
 /**
  * Upload logo
  * POST /api/v1/surveys/:id/upload/logo
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function uploadLogo(req, res) {
   try {
-    const surveyId = req.params.id;
-    
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Image file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Image file is required' });
     }
 
-    const result = await surveyService.uploadLogo(surveyId, req.file);
+    const result = await surveyService.uploadLogo(req.params.id, req.file);
 
-    res.json({
-      success: true,
-      message: 'Logo uploaded successfully',
-      imageUrl: result.LogoUrl
-    });
-
+    return sendSuccess(res, { imageUrl: result.LogoUrl }, { meta: { message: 'Logo uploaded successfully' } });
   } catch (error) {
-    logger.error('Upload logo controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while uploading logo'
-    });
+    return handleControllerError(res, error, 'An error occurred while uploading logo');
   }
 }
 
 /**
  * Upload background image
  * POST /api/v1/surveys/:id/upload/background
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function uploadBackgroundImage(req, res) {
   try {
-    const surveyId = req.params.id;
-    
     if (!req.file) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Image file is required'
-      });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Image file is required' });
     }
 
-    const result = await surveyService.uploadBackgroundImage(surveyId, req.file);
+    const result = await surveyService.uploadBackgroundImage(req.params.id, req.file);
 
-    res.json({
-      success: true,
-      message: 'Background image uploaded successfully',
-      imageUrl: result.BackgroundImageUrl
-    });
-
+    return sendSuccess(res, { imageUrl: result.BackgroundImageUrl }, { meta: { message: 'Background image uploaded successfully' } });
   } catch (error) {
-    logger.error('Upload background image controller error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while uploading background image'
-    });
+    return handleControllerError(res, error, 'An error occurred while uploading background image');
   }
 }
 
@@ -796,19 +459,19 @@ async function resolveSurveyShortCode(req, res) {
     const { code } = req.params;
 
     if (!code || !/^[A-Za-z0-9]{6}$/.test(code)) {
-      return res.status(400).json({ success: false, message: 'Invalid short code' });
+      return sendError(res, { status: 400, code: 'BAD_REQUEST', message: 'Invalid short code' });
     }
 
     const result = await surveyService.resolveSurveyShortCode(code);
 
     if (!result) {
-      return res.status(404).json({ success: false, message: 'Survey not found' });
+      return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Survey not found' });
     }
 
-    res.json({ success: true, surveyId: result.surveyId, slug: result.slug });
+    return sendSuccess(res, { surveyId: result.surveyId, slug: result.slug });
   } catch (error) {
     logger.error('Resolve short code error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    return sendError(res, { status: 500, message: 'Internal server error' });
   }
 }
 
@@ -829,10 +492,9 @@ async function getEvents(req, res) {
     }
 
     const events = await surveyService.getEvents(filter);
-    res.json({ success: true, events, surveys: events });
+    return sendSuccess(res, events);
   } catch (error) {
-    logger.error('Get events controller error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal memuat events' });
+    return handleControllerError(res, error, 'Gagal memuat events');
   }
 }
 
@@ -843,28 +505,21 @@ async function getEvents(req, res) {
 async function getEventById(req, res) {
   try {
     const event = await surveyService.getEventById(req.params.id);
-    
+
     // Permission check for AdminEvent: only allow access to assigned events
     if (req.user?.role === 'AdminEvent') {
       const userId = Number(req.user.userId);
       const assignedAdminIds = event.AssignedAdminIds || [];
-      
+
       // Check if user is assigned to this event (either directly or via EventAdminAssignments)
       if (!assignedAdminIds.includes(userId) && Number(event.AssignedAdminId) !== userId) {
-        return res.status(404).json({ 
-          error: 'Not found', 
-          message: 'Event not found or you do not have access to this event' 
-        });
+        return sendError(res, { status: 404, code: 'NOT_FOUND', message: 'Event not found or you do not have access to this event' });
       }
     }
-    
-    res.json({ success: true, event });
+
+    return sendSuccess(res, event);
   } catch (error) {
-    if (error.name === 'NotFoundError') {
-      return res.status(404).json({ error: 'Not found', message: 'Event tidak ditemukan' });
-    }
-    logger.error('Get event by ID controller error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal memuat event' });
+    return handleControllerError(res, error, 'Gagal memuat event');
   }
 }
 
@@ -890,7 +545,7 @@ async function createEvent(req, res) {
         errors: errors.array(),
         body: req.body
       });
-      return res.status(400).json({ error: 'Validation failed', message: 'Validasi gagal' });
+      return sendValidationErrors(res, errors);
     }
 
     // Defensive: try multiple property names for userId
@@ -902,28 +557,25 @@ async function createEvent(req, res) {
         hasReqUser: !!req.user,
         userKeys: req.user ? Object.keys(req.user) : []
       });
-      return res.status(401).json({
-        error: 'Authentication error',
-        message: 'Autentikasi gagal'
-      });
+      return sendError(res, { status: 401, code: 'UNAUTHENTICATED', message: 'Autentikasi gagal' });
     }
 
     const eventData = { ...req.body, createdBy };
-    
+
     logger.info('Calling surveyService.createEvent', {
       createdBy,
       title: eventData.title,
       eventTypeId: eventData.eventTypeId
     });
-    
+
     const result = await surveyService.createEvent(eventData);
-    
+
     logger.info('Event created successfully', {
       eventId: result.EventId,
       title: result.Title
     });
-    
-    res.status(201).json({ success: true, message: 'Event created successfully', event: result });
+
+    return sendCreated(res, result, { meta: { message: 'Event created successfully' } });
   } catch (error) {
     // Enhanced error logging with full context
     logger.error('Create event controller error', {
@@ -936,11 +588,8 @@ async function createEvent(req, res) {
       requestBody: req.body,
       bodyKeys: Object.keys(req.body || {})
     });
-    
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({ error: error.name || 'Request failed', message: 'Request gagal' });
-    }
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal membuat event' });
+
+    return handleControllerError(res, error, 'Gagal membuat event');
   }
 }
 
@@ -952,33 +601,19 @@ async function updateEvent(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: 'Validation failed', message: 'Validasi gagal' });
+      return sendValidationErrors(res, errors);
     }
 
-    const eventId = req.params.id;
     const updates = {
       ...req.body,
       updatedBy: req.user?.userId,
     };
 
-    const result = await surveyService.updateEvent(eventId, updates);
+    const result = await surveyService.updateEvent(req.params.id, updates);
 
-    res.json({
-      success: true,
-      message: 'Event updated successfully',
-      event: result
-    });
-
+    return sendSuccess(res, result, { meta: { message: 'Event updated successfully' } });
   } catch (error) {
-    if (error?.statusCode || error?.name === 'NotFoundError' || error?.name === 'ValidationError') {
-      const statusCode = error.statusCode || (error.name === 'NotFoundError' ? 404 : 400);
-      return res.status(statusCode).json({
-        error: error.name || 'Request failed',
-        message: 'Request gagal',
-      });
-    }
-    logger.error('Update event controller error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal mengubah event' });
+    return handleControllerError(res, error, 'Gagal mengubah event');
   }
 }
 
@@ -989,16 +624,9 @@ async function updateEvent(req, res) {
 async function deleteEvent(req, res) {
   try {
     await surveyService.deleteEvent(req.params.id);
-    res.json({ success: true, message: 'Event deleted successfully' });
+    return sendSuccess(res, null, { meta: { message: 'Event deleted successfully' } });
   } catch (error) {
-    if (error.name === 'NotFoundError') {
-      return res.status(404).json({ error: 'Not found', message: 'Event tidak ditemukan' });
-    }
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ error: 'Validation failed', message: 'Validasi gagal' });
-    }
-    logger.error('Delete event controller error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal menghapus event' });
+    return handleControllerError(res, error, 'Gagal menghapus event');
   }
 }
 
@@ -1008,10 +636,9 @@ async function getEventSurveys(req, res) {
     const filter = { eventId };
     if (req.query.status) filter.status = req.query.status;
     const surveys = await surveyService.getSurveys(filter);
-    res.json({ success: true, surveys });
+    return sendSuccess(res, surveys);
   } catch (error) {
-    logger.error('Get event surveys controller error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'Gagal memuat survey event' });
+    return handleControllerError(res, error, 'Gagal memuat survey event');
   }
 }
 
@@ -1023,7 +650,7 @@ async function createEventSurvey(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      return sendValidationErrors(res, errors);
     }
 
     const surveyData = {
@@ -1033,13 +660,9 @@ async function createEventSurvey(req, res) {
     };
 
     const result = await surveyService.createSurvey(surveyData);
-    res.status(201).json({ success: true, message: 'Survey created successfully', survey: result });
+    return sendCreated(res, result, { meta: { message: 'Survey created successfully' } });
   } catch (error) {
-    if (error?.statusCode) {
-      return res.status(error.statusCode).json({ error: error.name || 'Request failed', message: error.message });
-    }
-    logger.error('Create event survey controller error:', error);
-    res.status(500).json({ error: 'Internal server error', message: 'An error occurred while creating survey' });
+    return handleControllerError(res, error, 'An error occurred while creating survey');
   }
 }
 
@@ -1127,8 +750,3 @@ module.exports = {
   createEventSurvey,
   upload
 };
-
-
-
-
-
